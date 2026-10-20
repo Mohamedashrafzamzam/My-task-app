@@ -6,6 +6,8 @@
     <title>متابع المهام بالذكاء الاصطناعي</title>
     <link rel="manifest" href="data:application/json,{\"name\":\"متابع المهام\",\"short_name\":\"مهامي\",\"start_url\":\".\",\"display\":\"standalone\",\"background_color\":\"#000000\",\"theme_color\":\"#000000\"}">
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { background-color: #09090b; color: #f4f4f5; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
         .recording-pulse { animation: pulse 1.5s infinite; }
@@ -15,127 +17,223 @@
 </head>
 <body class="max-w-md mx-auto min-h-screen flex flex-col justify-between p-4 pb-20">
 
-    <!-- Header Navigation & Tab Switcher -->
-    <div>
-        <div class="flex justify-between items-center mb-4">
-            <h1 class="text-xl font-bold tracking-tight" id="uiTitle">مهامي اليومية</h1>
-            <div class="flex gap-2 items-center">
-                <button onclick="toggleLanguage()" id="langBtn" class="bg-zinc-800 text-xs px-2.5 py-1.5 rounded-lg border border-zinc-700 text-purple-400 font-medium">English</button>
-                <input type="date" id="datePicker" onchange="changeDate()" class="bg-zinc-800 text-xs text-zinc-200 px-2 py-1.5 rounded-lg border border-zinc-700 outline-none">
-            </div>
+    <!-- AUTH SCREEN (Shown if not logged in) -->
+    <div id="authScreen" class="flex flex-col justify-center min-h-[80vh] space-y-4">
+        <div class="text-center mb-4">
+            <h1 class="text-2xl font-bold">مرحبًا بك 👋</h1>
+            <p class="text-xs text-zinc-400 mt-1">سجل دخولك لحفظ مهامك والتزامك في حسابك الخاص</p>
         </div>
-
-        <!-- Navigation Tabs: Daily Tasks vs Commitment Heatmap -->
-        <div class="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800 mb-4">
-            <button id="tabTasksBtn" onclick="switchTab('tasks')" class="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 text-white transition">
-                <span id="uiTabTasks">📋 المهام اليومية</span>
-            </button>
-            <button id="tabStatsBtn" onclick="switchTab('stats')" class="flex-1 py-1.5 text-xs font-semibold rounded-lg text-zinc-400 hover:text-white transition">
-                <span id="uiTabStats">🟩 خريطة الالتزام (GitHub)</span>
-            </button>
-        </div>
-
-        <!-- TAB 1: DAILY TASKS VIEW -->
-        <div id="viewTasks">
-            <!-- AI Assistant Banner -->
-            <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl mb-4">
-                <div class="flex items-center gap-2 text-xs font-semibold text-purple-400 mb-1">
-                    <span>✦</span> <span id="uiAiLabel">المساعد الذكي</span>
-                </div>
-                <p id="aiGreeting" class="text-sm text-zinc-300">دوس على المايك أو اكتب كل اللي وراك النهارده في جملة واحدة.</p>
-            </div>
-
-            <!-- Missed Tasks Alert -->
-            <div id="missedTasksSection" class="hidden bg-amber-950/40 border border-amber-800/50 p-3 rounded-xl mb-4">
-                <p class="text-xs text-amber-400 font-semibold mb-2" id="uiMissedText">⚠️ مهام مخلصلتهاش من أيام قبل كده:</p>
-                <div id="missedList" class="space-y-2"></div>
-            </div>
-
-            <!-- Active Tasks List -->
-            <div id="taskList" class="space-y-2"></div>
-        </div>
-
-        <!-- TAB 2: COMMITMENT HEATMAP & STATS VIEW -->
-        <div id="viewStats" class="hidden space-y-4">
-            <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
-                <h2 class="text-sm font-bold text-zinc-200 mb-3" id="uiHeatmapTitle">خريطة الالتزام والإنجاز (آخر 30 يوم)</h2>
-                <div id="heatmapGrid" class="flex flex-wrap gap-1.5 justify-center p-2 bg-zinc-950 rounded-lg border border-zinc-800/60"></div>
-                <div class="flex justify-between text-[10px] text-zinc-500 mt-3 px-1">
-                    <span id="uiLess">أقل إنجاز</span>
-                    <div class="flex gap-1 items-center">
-                        <div class="heatmap-cell bg-zinc-800"></div>
-                        <div class="heatmap-cell bg-emerald-900"></div>
-                        <div class="heatmap-cell bg-emerald-700"></div>
-                        <div class="heatmap-cell bg-emerald-500"></div>
-                        <div class="heatmap-cell bg-emerald-400"></div>
-                    </div>
-                    <span id="uiMore">أعلى إنجاز</span>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-                <div class="bg-zinc-900 border border-zinc-800 p-3 rounded-xl text-center">
-                    <p class="text-2xl font-extrabold text-emerald-400" id="statCompletedCount">0</p>
-                    <p class="text-xs text-zinc-500 mt-1" id="uiTotalDone">إجمالي المهام المكتملة</p>
-                </div>
-                <div class="bg-zinc-900 border border-zinc-800 p-3 rounded-xl text-center">
-                    <p class="text-2xl font-extrabold text-purple-400" id="statStreak">0 أيام</p>
-                    <p class="text-xs text-zinc-500 mt-1" id="uiStreak">سلسلة الالتزام المتواصل</p>
-                </div>
+        <div class="bg-zinc-900 p-4 rounded-xl border border-zinc-800 space-y-3">
+            <input type="email" id="authEmail" placeholder="البريد الإلكتروني (Email)" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm focus:outline-none">
+            <input type="password" id="authPassword" placeholder="كلمة السر (Password)" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm focus:outline-none">
+            <div class="flex gap-2 pt-2">
+                <button onclick="handleLogin()" class="flex-1 bg-white text-black font-semibold text-sm py-2.5 rounded-lg">تسجيل الدخول</button>
+                <button onclick="handleSignUp()" class="flex-1 bg-zinc-800 text-zinc-200 font-semibold text-sm py-2.5 rounded-lg border border-zinc-700">حساب جديد</button>
             </div>
         </div>
     </div>
 
-    <!-- Bottom Controls: Voice, Time Limits & Input -->
-    <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-zinc-950/95 backdrop-blur-md p-4 border-t border-zinc-800/80">
-        <div id="recordingStatus" class="hidden text-xs text-red-400 font-medium mb-2 flex items-center gap-2 recording-pulse">
-            <span class="w-2 h-2 rounded-full bg-red-500"></span> <span id="uiListening">سامعك... اتكلم وبص على الكلام بيتكتب</span>
+    <!-- MAIN APP SCREEN (Hidden until logged in) -->
+    <div id="appScreen" class="hidden">
+        <!-- Header Navigation & Tab Switcher -->
+        <div>
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center gap-2">
+                    <h1 class="text-xl font-bold tracking-tight" id="uiTitle">مهامي اليومية</h1>
+                    <button onclick="handleSignOut()" class="text-[10px] text-red-400 bg-red-950/40 px-2 py-1 rounded border border-red-900/50">خروج</button>
+                </div>
+                <div class="flex gap-2 items-center">
+                    <button onclick="toggleLanguage()" id="langBtn" class="bg-zinc-800 text-xs px-2.5 py-1.5 rounded-lg border border-zinc-700 text-purple-400 font-medium">English</button>
+                    <input type="date" id="datePicker" onchange="changeDate()" class="bg-zinc-800 text-xs text-zinc-200 px-2 py-1.5 rounded-lg border border-zinc-700 outline-none">
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800 mb-4">
+                <button id="tabTasksBtn" onclick="switchTab('tasks')" class="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 text-white transition">
+                    <span id="uiTabTasks">📋 المهام اليومية</span>
+                </button>
+                <button id="tabStatsBtn" onclick="switchTab('stats')" class="flex-1 py-1.5 text-xs font-semibold rounded-lg text-zinc-400 hover:text-white transition">
+                    <span id="uiTabStats">🟩 خريطة الالتزام (GitHub)</span>
+                </button>
+            </div>
+
+            <!-- TAB 1: DAILY TASKS VIEW -->
+            <div id="viewTasks">
+                <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl mb-4">
+                    <div class="flex items-center gap-2 text-xs font-semibold text-purple-400 mb-1">
+                        <span>✦</span> <span id="uiAiLabel">المساعد الذكي</span>
+                    </div>
+                    <p id="aiGreeting" class="text-sm text-zinc-300">جاري تحميل مهامك الحسابية...</p>
+                </div>
+
+                <div id="missedTasksSection" class="hidden bg-amber-950/40 border border-amber-800/50 p-3 rounded-xl mb-4">
+                    <p class="text-xs text-amber-400 font-semibold mb-2" id="uiMissedText">⚠️ مهام مخلصلتهاش من أيام قبل كده:</p>
+                    <div id="missedList" class="space-y-2"></div>
+                </div>
+
+                <div id="taskList" class="space-y-2"></div>
+            </div>
+
+            <!-- TAB 2: COMMITMENT HEATMAP & STATS VIEW -->
+            <div id="viewStats" class="hidden space-y-4">
+                <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+                    <h2 class="text-sm font-bold text-zinc-200 mb-3" id="uiHeatmapTitle">خريطة الالتزام والإنجاز (آخر 30 يوم)</h2>
+                    <div id="heatmapGrid" class="flex flex-wrap gap-1.5 justify-center p-2 bg-zinc-950 rounded-lg border border-zinc-800/60"></div>
+                    <div class="flex justify-between text-[10px] text-zinc-500 mt-3 px-1">
+                        <span id="uiLess">أقل إنجاز</span>
+                        <div class="flex gap-1 items-center">
+                            <div class="heatmap-cell bg-zinc-800"></div>
+                            <div class="heatmap-cell bg-emerald-900"></div>
+                            <div class="heatmap-cell bg-emerald-700"></div>
+                            <div class="heatmap-cell bg-emerald-500"></div>
+                            <div class="heatmap-cell bg-emerald-400"></div>
+                        </div>
+                        <span id="uiMore">أعلى إنجاز</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-zinc-900 border border-zinc-800 p-3 rounded-xl text-center">
+                        <p class="text-2xl font-extrabold text-emerald-400" id="statCompletedCount">0</p>
+                        <p class="text-xs text-zinc-500 mt-1" id="uiTotalDone">إجمالي المهام المكتملة</p>
+                    </div>
+                    <div class="bg-zinc-900 border border-zinc-800 p-3 rounded-xl text-center">
+                        <p class="text-2xl font-extrabold text-purple-400" id="statStreak">0 أيام</p>
+                        <p class="text-xs text-zinc-500 mt-1" id="uiStreak">سلسلة الالتزام المتواصل</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="flex items-center gap-2 mb-2">
-            <button id="micBtn" onclick="toggleVoiceInput()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 p-3.5 rounded-xl transition flex items-center justify-center">
-                <span id="micIcon" class="text-lg">🎙️</span>
-            </button>
-            <textarea id="taskPromptInput" rows="2" placeholder="قول أو اكتب اللي عايز تعمله (مثال: عايز أروح الجيم الساعة ٩ وبعدين أذاكر وكمان أشتري طلبات)..." class="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-zinc-600 resize-none"></textarea>
-            <button onclick="processInputPrompt()" id="uiAddBtn" class="bg-white text-black font-semibold text-sm px-4 py-3 rounded-xl hover:bg-zinc-200 transition">
-                إضافة
-            </button>
-        </div>
+        <!-- Bottom Controls -->
+        <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-zinc-95header bg-zinc-950/95 backdrop-blur-md p-4 border-t border-zinc-800/80">
+            <div id="recordingStatus" class="hidden text-xs text-red-400 font-medium mb-2 flex items-center gap-2 recording-pulse">
+                <span class="w-2 h-2 rounded-full bg-red-500"></span> <span id="uiListening">سامعك... اتكلم وبص على الكلام بيتكتب</span>
+            </div>
 
-        <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 px-1">
-            <label class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" id="photoToggle" class="rounded bg-zinc-900 border-zinc-800">
-                <span id="uiPhotoLabel">مطلوب صورة إثبات</span>
-            </label>
-            <div class="flex items-center gap-1">
-                <span id="uiTimeLabel">وقت الموعد:</span>
-                <input type="time" id="startTimeInput" class="bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 text-[11px]">
-                <span>-</span>
-                <input type="time" id="endTimeInput" class="bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 text-[11px]">
+            <div class="flex items-center gap-2 mb-2">
+                <button id="micBtn" onclick="toggleVoiceInput()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 p-3.5 rounded-xl transition flex items-center justify-center">
+                    <span id="micIcon" class="text-lg">🎙️</span>
+                </button>
+                <textarea id="taskPromptInput" rows="2" placeholder="قول أو اكتب اللي عايز تعمله (مثال: عايز أروح الجيم الساعة ٩ وبعدين أذاكر)..." class="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-zinc-600 resize-none"></textarea>
+                <button onclick="processInputPrompt()" id="uiAddBtn" class="bg-white text-black font-semibold text-sm px-4 py-3 rounded-xl hover:bg-zinc-200 transition">
+                    إضافة
+                </button>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 px-1">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="photoToggle" class="rounded bg-zinc-900 border-zinc-800">
+                    <span id="uiPhotoLabel">مطلوب صورة إثبات</span>
+                </label>
+                <div class="flex items-center gap-1">
+                    <span id="uiTimeLabel">وقت الموعد:</span>
+                    <input type="time" id="startTimeInput" class="bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 text-[11px]">
+                    <span>-</span>
+                    <input type="time" id="endTimeInput" class="bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 text-[11px]">
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        // PASTE YOUR SUPABASE DETAILS HERE
+        const SUPABASE_URL = 'https://oymblkoqdesskjbrvzec.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95bWJsa29xZGVzc2tqYnJ2emVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjgxNTIsImV4cCI6MjEwODEwNDE1Mn0.J_UcZW7sh9VKPRW0aJnFMoJEBiFBwJSMpSTuwFPuFkM';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let currentUser = null;
         let currentLang = localStorage.getItem('app_lang') || 'ar';
         let selectedDate = new Date().toISOString().split('T')[0];
-        let tasks = JSON.parse(localStorage.getItem('ai_tasks_master') || '[]');
+        let tasks = [];
         let currentTab = 'tasks';
         let recognition = null;
         let isRecording = false;
 
         document.getElementById('datePicker').value = selectedDate;
-        applyLanguageUI();
-        requestNotificationPermission();
 
-        function saveTasks() {
-            localStorage.setItem('ai_tasks_master', JSON.stringify(tasks));
-            render();
+        // Check Auth State on Load
+        async function checkAuth() {
+            const { data: { user } } = await _supabase.auth.getUser();
+            if (user) {
+                currentUser = user;
+                document.getElementById('authScreen').classList.add('hidden');
+                document.getElementById('appScreen').classList.remove('hidden');
+                applyLanguageUI();
+                await fetchTasks();
+            } else {
+                document.getElementById('authScreen').classList.remove('hidden');
+                document.getElementById('appScreen').classList.add('hidden');
+            }
         }
 
-        function requestNotificationPermission() {
-            if ("Notification" in window && Notification.permission === "default") {
-                Notification.requestPermission();
+        async function handleLogin() {
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value.trim();
+            if (!email || !password) return alert('أدخل البريد وكلمة السر');
+
+            const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+            if (error) alert(error.message);
+            else checkAuth();
+        }
+
+        async function handleSignUp() {
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value.trim();
+            if (!email || !password) return alert('أدخل البريد وكلمة السر');
+
+            const { data, error } = await _supabase.auth.signUp({ email, password });
+            if (error) alert(error.message);
+            else alert('تم إنشاء الحساب! تحقق من بريدك الإلكتروني لتأكيده، ثم سجل الدخول.');
+        }
+
+        async function handleSignOut() {
+            await _supabase.auth.signOut();
+            location.reload();
+        }
+
+        async function fetchTasks() {
+            const { data, error } = await _supabase.from('tasks').select('*');
+            if (error) console.error(error);
+            else {
+                tasks = data || [];
+                render();
+            }
+        }
+
+        async function saveTaskToDb(newTask) {
+            const { data, error } = await _supabase.from('tasks').insert([{
+                user_id: currentUser.id,
+                title: newTask.title,
+                date: newTask.date,
+                start_time: newTask.startTime,
+                end_time: newTask.endTime,
+                completed: false,
+                needs_photo: newTask.needsPhoto,
+                photo_url: null
+            }]).select();
+
+            if (!error && data) {
+                tasks.push(data[0]);
+                render();
+            }
+        }
+
+        async function updateTaskInDb(id, updates) {
+            const { error } = await _supabase.from('tasks').update(updates).eq('id', id);
+            if (!error) {
+                const idx = tasks.findIndex(t => t.id === id);
+                if (idx !== -1) Object.assign(tasks[idx], updates);
+                render();
+            }
+        }
+
+        async function deleteTaskFromDb(id) {
+            const { error } = await _supabase.from('tasks').delete().eq('id', id);
+            if (!error) {
+                tasks = tasks.filter(t => t.id !== id);
+                render();
             }
         }
 
@@ -183,7 +281,7 @@
                 document.getElementById('uiTotalDone').textContent = 'إجمالي المهام المكتملة';
                 document.getElementById('uiStreak').textContent = 'سلسلة الالتزام المتواصل';
                 document.getElementById('uiListening').textContent = 'سامعك... اتكلم وبص على الكلام بيتكتب';
-                document.getElementById('taskPromptInput').placeholder = 'قول أو اكتب اللي عايز تعمله (مثال: عايز أروح الجيم الساعة ٩ وبعدين أذاكر وكمان أشتري طلبات)...';
+                document.getElementById('taskPromptInput').placeholder = 'قول أو اكتب اللي عايز تعمله (مثال: عايز أروح الجيم الساعة ٩ وبعدين أذاكر)...';
                 document.getElementById('uiAddBtn').textContent = 'إضافة';
                 document.getElementById('uiPhotoLabel').textContent = 'مطلوب صورة إثبات';
                 document.getElementById('uiTimeLabel').textContent = 'وقت الموعد:';
@@ -202,7 +300,7 @@
                 document.getElementById('uiTotalDone').textContent = 'Total Tasks Done';
                 document.getElementById('uiStreak').textContent = 'Current Day Streak';
                 document.getElementById('uiListening').textContent = 'Listening... Speak your tasks clearly';
-                document.getElementById('taskPromptInput').placeholder = 'Say or type what you want to do (e.g. workout at 9am, then study math, and buy groceries)...';
+                document.getElementById('taskPromptInput').placeholder = 'Say or type what you want to do (e.g. workout at 9am, then study math)...';
                 document.getElementById('uiAddBtn').textContent = 'Add';
                 document.getElementById('uiPhotoLabel').textContent = 'Require photo proof';
                 document.getElementById('uiTimeLabel').textContent = 'Time window:';
@@ -215,13 +313,9 @@
             render();
         }
 
-        // --- SPEECH RECOGNITION ---
         function toggleVoiceInput() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                alert(currentLang === 'ar' ? 'المتصفح ده مش بيلقط صوت. استخدم Safari على iOS أو Chrome على Android.' : 'Voice recognition is not supported in this browser.');
-                return;
-            }
+            if (!SpeechRecognition) return alert('Voice recognition not supported in this browser.');
 
             const micBtn = document.getElementById('micBtn');
             const statusLabel = document.getElementById('recordingStatus');
@@ -253,20 +347,15 @@
 
             recognition.onerror = () => stopRecordingUI();
             recognition.onend = () => stopRecordingUI();
-
             recognition.start();
         }
 
         function stopRecordingUI() {
             isRecording = false;
-            const micBtn = document.getElementById('micBtn');
-            const statusLabel = document.getElementById('recordingStatus');
-            micBtn.classList.remove('bg-red-600');
-            micBtn.classList.add('bg-zinc-800');
-            statusLabel.classList.add('hidden');
+            document.getElementById('micBtn').className = 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 p-3.5 rounded-xl transition flex items-center justify-center';
+            document.getElementById('recordingStatus').classList.add('hidden');
         }
 
-        // --- DIALECT PARSER & TASK CREATOR ---
         function processInputPrompt() {
             const text = document.getElementById('taskPromptInput').value.trim();
             if (!text) return;
@@ -278,19 +367,14 @@
             const endTime = document.getElementById('endTimeInput').value || null;
 
             rawTasks.forEach(rawItem => {
-                let cleanTitle = rawItem.trim();
-                cleanTitle = cleanTitle.replace(/^(عايز أعمل|عايز|محتاج أعمل|محتاج|وراي|النهارده عايز|النهارده محتاج|I want to|I need to|today I want to)\s+/gi, '');
-
+                let cleanTitle = rawItem.trim().replace(/^(عايز أعمل|عايز|محتاج أعمل|محتاج|وراي|I want to|I need to)\s+/gi, '');
                 if (cleanTitle.length > 1) {
-                    tasks.push({
-                        id: Date.now() + Math.random(),
+                    saveTaskToDb({
                         title: cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1),
                         date: selectedDate,
                         startTime: startTime,
                         endTime: endTime,
-                        completed: false,
-                        needsPhoto: photoRequired,
-                        photoUrl: null
+                        needsPhoto: photoRequired
                     });
                 }
             });
@@ -299,14 +383,13 @@
             document.getElementById('photoToggle').checked = false;
             document.getElementById('startTimeInput').value = '';
             document.getElementById('endTimeInput').value = '';
-            saveTasks();
         }
 
         function toggleTask(id) {
             const task = tasks.find(t => t.id === id);
             if (!task) return;
 
-            if (task.needsPhoto && !task.completed && !task.photoUrl) {
+            if (task.needs_photo && !task.completed && !task.photo_url) {
                 const input = document.createElement('input');
                 input.type = 'file';
                 input.accept = 'image/*';
@@ -315,43 +398,32 @@
                     if (file) {
                         const reader = new FileReader();
                         reader.onload = () => {
-                            task.photoUrl = reader.result;
-                            task.completed = true;
-                            saveTasks();
+                            updateTaskInDb(id, { completed: true, photo_url: reader.result });
                         };
                         reader.readAsDataURL(file);
                     }
                 };
                 input.click();
             } else {
-                task.completed = !task.completed;
-                saveTasks();
+                updateTaskInDb(id, { completed: !task.completed });
             }
         }
 
         function rescheduleTask(id, targetDate) {
-            const task = tasks.find(t => t.id === id);
-            if (task) {
-                task.date = targetDate;
-                saveTasks();
-            }
+            updateTaskInDb(id, { date: targetDate });
         }
 
         function dropTask(id) {
-            tasks = tasks.filter(t => t.id !== id);
-            saveTasks();
+            deleteTaskFromDb(id);
         }
 
-        // --- RENDER HEATMAP ---
         function renderHeatmap() {
             const grid = document.getElementById('heatmapGrid');
             grid.innerHTML = '';
-
             let totalDone = 0;
-            const days = 30;
             const todayObj = new Date();
 
-            for (let i = days - 1; i >= 0; i--) {
+            for (let i = 29; i >= 0; i--) {
                 const d = new Date();
                 d.setDate(todayObj.getDate() - i);
                 const dateStr = d.toISOString().split('T')[0];
@@ -386,14 +458,11 @@
                 const dayTasks = tasks.filter(t => t.date === dateStr);
                 if (dayTasks.length > 0 && dayTasks.every(t => t.completed)) {
                     streak++;
-                } else if (i > 0) {
-                    break;
-                }
+                } else if (i > 0) break;
             }
             return streak;
         }
 
-        // --- RENDER MAIN UI ---
         function render() {
             const list = document.getElementById('taskList');
             list.innerHTML = '';
@@ -401,7 +470,6 @@
             const todayTasks = tasks.filter(t => t.date === selectedDate);
             const today = new Date().toISOString().split('T')[0];
 
-            // Render Missed Tasks Section
             const missedSection = document.getElementById('missedTasksSection');
             const missedList = document.getElementById('missedList');
             missedList.innerHTML = '';
@@ -416,20 +484,15 @@
                         div.innerHTML = `
                             <span class="text-zinc-300 truncate max-w-[140px]">${task.title}</span>
                             <div class="flex gap-1.5">
-                                <button onclick="rescheduleTask(${task.id}, '${today}')" class="bg-blue-600 text-white px-2.5 py-1 rounded">${currentLang === 'ar' ? 'النهارده' : 'Today'}</button>
-                                <button onclick="dropTask(${task.id})" class="bg-red-900/60 text-red-300 px-2.5 py-1 rounded">${currentLang === 'ar' ? 'مسح' : 'Drop'}</button>
+                                <button onclick="rescheduleTask('${task.id}', '${today}')" class="bg-blue-600 text-white px-2.5 py-1 rounded">${currentLang === 'ar' ? 'النهارده' : 'Today'}</button>
+                                <button onclick="dropTask('${task.id}')" class="bg-red-900/60 text-red-300 px-2.5 py-1 rounded">${currentLang === 'ar' ? 'مسح' : 'Drop'}</button>
                             </div>
                         `;
                         missedList.appendChild(div);
                     });
-                } else {
-                    missedSection.classList.add('hidden');
-                }
-            } else {
-                missedSection.classList.add('hidden');
-            }
+                } else missedSection.classList.add('hidden');
+            } else missedSection.classList.add('hidden');
 
-            // Render Today's Tasks
             if (todayTasks.length === 0) {
                 list.innerHTML = `<p class="text-xs text-zinc-600 text-center py-8">${currentLang === 'ar' ? 'مفيش مهام متسجلة لليوم ده.' : 'No tasks scheduled for this day.'}</p>`;
             } else {
@@ -438,13 +501,13 @@
                     div.className = `flex items-center justify-between p-3.5 rounded-xl border ${task.completed ? 'bg-zinc-950 border-zinc-900 text-zinc-600' : 'bg-zinc-900 border-zinc-800 text-zinc-200'}`;
                     
                     let timeBadge = '';
-                    if (task.startTime || task.endTime) {
-                        timeBadge = `<span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">⏰ ${task.startTime || ''} ${task.endTime ? '- ' + task.endTime : ''}</span>`;
+                    if (task.start_time || task.end_time) {
+                        timeBadge = `<span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">⏰ ${task.start_time || ''} ${task.end_time ? '- ' + task.end_time : ''}</span>`;
                     }
 
                     div.innerHTML = `
                         <div class="flex items-center gap-3">
-                            <button onclick="toggleTask(${task.id})" class="text-lg">
+                            <button onclick="toggleTask('${task.id}')" class="text-lg">
                                 ${task.completed ? '✅' : '⭕'}
                             </button>
                             <div>
@@ -453,35 +516,28 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
-                            ${task.needsPhoto ? `<span class="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">${task.photoUrl ? (currentLang === 'ar' ? '📷 موثق' : '📷 Verified') : (currentLang === 'ar' ? '📷 مطلوب صورة' : '📷 Photo Needed')}</span>` : ''}
-                            <button onclick="dropTask(${task.id})" class="text-xs text-zinc-600 hover:text-red-400 px-1">✕</button>
+                            ${task.needs_photo ? `<span class="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">${task.photo_url ? (currentLang === 'ar' ? '📷 موثق' : '📷 Verified') : (currentLang === 'ar' ? '📷 مطلوب صورة' : '📷 Photo Needed')}</span>` : ''}
+                            <button onclick="dropTask('${task.id}')" class="text-xs text-zinc-600 hover:text-red-400 px-1">✕</button>
                         </div>
                     `;
                     list.appendChild(div);
                 });
             }
 
-            // Update AI Greeting
             const aiGreeting = document.getElementById('aiGreeting');
             const doneCount = todayTasks.filter(t => t.completed).length;
             if (todayTasks.length === 0) {
-                aiGreeting.textContent = currentLang === 'ar' 
-                    ? "اليوم ده فاضي. دوس على المايك أو اكتب كل اللي عايز تخلصه النهارده!" 
-                    : "Your schedule is empty for this day. Tap the mic or type to add what you want to do!";
+                aiGreeting.textContent = currentLang === 'ar' ? "اليوم ده فاضي. دوس على المايك أو اكتب كل اللي عايز تخلصه النهارده!" : "Your schedule is empty for this day.";
             } else if (doneCount === todayTasks.length) {
-                aiGreeting.textContent = currentLang === 'ar' 
-                    ? `🎉 عاش جدًا! خلصت كل الـ ${todayTasks.length} مهام بتوع النهارده.` 
-                    : `🎉 Fantastic! You completed all ${todayTasks.length} tasks scheduled for today.`;
+                aiGreeting.textContent = currentLang === 'ar' ? `🎉 عاش جدًا! خلصت كل الـ ${todayTasks.length} مهام بتوع النهارده.` : `🎉 Fantastic! You completed all ${todayTasks.length} tasks scheduled for today.`;
             } else {
-                aiGreeting.textContent = currentLang === 'ar' 
-                    ? `خلصت ${doneCount} من أصل ${todayTasks.length} مهام النهارده. كمل يا بطل!` 
-                    : `You have completed ${doneCount} out of ${todayTasks.length} tasks for this day. Keep going!`;
+                aiGreeting.textContent = currentLang === 'ar' ? `خلصت ${doneCount} من أصل ${todayTasks.length} مهام النهارده. كمل يا بطل!` : `You have completed ${doneCount} out of ${todayTasks.length} tasks for this day. Keep going!`;
             }
 
             if (currentTab === 'stats') renderHeatmap();
         }
 
-        render();
+        checkAuth();
     </script>
 </body>
 </html>
