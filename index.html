@@ -10,40 +10,84 @@
         body { background-color: #09090b; color: #f4f4f5; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
         .recording-pulse { animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        .heatmap-cell { width: 14px; height: 14px; border-radius: 3px; }
     </style>
 </head>
-<body class="max-w-md mx-auto min-h-screen flex flex-col justify-between p-4 pb-8">
+<body class="max-w-md mx-auto min-h-screen flex flex-col justify-between p-4 pb-20">
 
-    <!-- Header & Language Selector -->
+    <!-- Header Navigation & Tab Switcher -->
     <div>
         <div class="flex justify-between items-center mb-4">
             <h1 class="text-xl font-bold tracking-tight" id="uiTitle">مهامي اليومية</h1>
             <div class="flex gap-2 items-center">
-                <button onclick="toggleLanguage()" id="langBtn" class="bg-zinc-800 text-xs px-2.5 py-1 rounded-lg border border-zinc-700 text-purple-400">English</button>
+                <button onclick="toggleLanguage()" id="langBtn" class="bg-zinc-800 text-xs px-2.5 py-1.5 rounded-lg border border-zinc-700 text-purple-400 font-medium">English</button>
                 <input type="date" id="datePicker" onchange="changeDate()" class="bg-zinc-800 text-xs text-zinc-200 px-2 py-1.5 rounded-lg border border-zinc-700 outline-none">
             </div>
         </div>
 
-        <!-- AI Assistant Banner -->
-        <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl mb-4">
-            <div class="flex items-center gap-2 text-xs font-semibold text-purple-400 mb-1">
-                <span>✦</span> <span id="uiAiLabel">المساعد الذكي</span>
+        <!-- Navigation Tabs: Daily Tasks vs Commitment Heatmap -->
+        <div class="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800 mb-4">
+            <button id="tabTasksBtn" onclick="switchTab('tasks')" class="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 text-white transition">
+                <span id="uiTabTasks">📋 المهام اليومية</span>
+            </button>
+            <button id="tabStatsBtn" onclick="switchTab('stats')" class="flex-1 py-1.5 text-xs font-semibold rounded-lg text-zinc-400 hover:text-white transition">
+                <span id="uiTabStats">🟩 خريطة الالتزام (GitHub)</span>
+            </button>
+        </div>
+
+        <!-- TAB 1: DAILY TASKS VIEW -->
+        <div id="viewTasks">
+            <!-- AI Assistant Banner -->
+            <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl mb-4">
+                <div class="flex items-center gap-2 text-xs font-semibold text-purple-400 mb-1">
+                    <span>✦</span> <span id="uiAiLabel">المساعد الذكي</span>
+                </div>
+                <p id="aiGreeting" class="text-sm text-zinc-300">دوس على المايك أو اكتب كل اللي وراك النهارده في جملة واحدة.</p>
             </div>
-            <p id="aiGreeting" class="text-sm text-zinc-300">دوس على المايك أو اكتب كل اللي وراك النهارده في جملة واحدة.</p>
+
+            <!-- Missed Tasks Alert -->
+            <div id="missedTasksSection" class="hidden bg-amber-950/40 border border-amber-800/50 p-3 rounded-xl mb-4">
+                <p class="text-xs text-amber-400 font-semibold mb-2" id="uiMissedText">⚠️ مهام مخلصلتهاش من أيام قبل كده:</p>
+                <div id="missedList" class="space-y-2"></div>
+            </div>
+
+            <!-- Active Tasks List -->
+            <div id="taskList" class="space-y-2"></div>
         </div>
 
-        <!-- Missed Tasks Alert -->
-        <div id="missedTasksSection" class="hidden bg-amber-950/40 border border-amber-800/50 p-3 rounded-xl mb-4">
-            <p class="text-xs text-amber-400 font-semibold mb-2" id="uiMissedText">⚠️ مهام مخلصلتهاش من أيام قبل كده:</p>
-            <div id="missedList" class="space-y-2"></div>
-        </div>
+        <!-- TAB 2: COMMITMENT HEATMAP & STATS VIEW -->
+        <div id="viewStats" class="hidden space-y-4">
+            <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+                <h2 class="text-sm font-bold text-zinc-200 mb-3" id="uiHeatmapTitle">خريطة الالتزام والإنجاز (آخر 30 يوم)</h2>
+                <div id="heatmapGrid" class="flex flex-wrap gap-1.5 justify-center p-2 bg-zinc-950 rounded-lg border border-zinc-800/60"></div>
+                <div class="flex justify-between text-[10px] text-zinc-500 mt-3 px-1">
+                    <span id="uiLess">أقل إنجاز</span>
+                    <div class="flex gap-1 items-center">
+                        <div class="heatmap-cell bg-zinc-800"></div>
+                        <div class="heatmap-cell bg-emerald-900"></div>
+                        <div class="heatmap-cell bg-emerald-700"></div>
+                        <div class="heatmap-cell bg-emerald-500"></div>
+                        <div class="heatmap-cell bg-emerald-400"></div>
+                    </div>
+                    <span id="uiMore">أعلى إنجاز</span>
+                </div>
+            </div>
 
-        <!-- Active Tasks List -->
-        <div id="taskList" class="space-y-2"></div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-zinc-900 border border-zinc-800 p-3 rounded-xl text-center">
+                    <p class="text-2xl font-extrabold text-emerald-400" id="statCompletedCount">0</p>
+                    <p class="text-xs text-zinc-500 mt-1" id="uiTotalDone">إجمالي المهام المكتملة</p>
+                </div>
+                <div class="bg-zinc-900 border border-zinc-800 p-3 rounded-xl text-center">
+                    <p class="text-2xl font-extrabold text-purple-400" id="statStreak">0 أيام</p>
+                    <p class="text-xs text-zinc-500 mt-1" id="uiStreak">سلسلة الالتزام المتواصل</p>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Bottom Control Dock: Voice & Input -->
-    <div class="pt-4 border-t border-zinc-800">
+    <!-- Bottom Controls: Voice, Time Limits & Input -->
+    <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-zinc-950/95 backdrop-blur-md p-4 border-t border-zinc-800/80">
         <div id="recordingStatus" class="hidden text-xs text-red-400 font-medium mb-2 flex items-center gap-2 recording-pulse">
             <span class="w-2 h-2 rounded-full bg-red-500"></span> <span id="uiListening">سامعك... اتكلم وبص على الكلام بيتكتب</span>
         </div>
@@ -52,33 +96,68 @@
             <button id="micBtn" onclick="toggleVoiceInput()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 p-3.5 rounded-xl transition flex items-center justify-center">
                 <span id="micIcon" class="text-lg">🎙️</span>
             </button>
-            <textarea id="taskPromptInput" rows="2" placeholder="قول أو اكتب اللي عايز تعمله (مثال: عايز أروح الجيم الساعة ٩ وبعدين أذاكر وكمان أشتري طلبات)..." class="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-zinc-600 resize-none"></textarea>
+            <textarea id="taskPromptInput" rows="2" placeholder="قول أو اكتب اللي عايز تعمله (مثال: عايز أروح الجيم الساعة ٩ وبعدين أذاكر وكمان أشتري طلبات)..." class="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-zinc-600 resize-none"></textarea>
             <button onclick="processInputPrompt()" id="uiAddBtn" class="bg-white text-black font-semibold text-sm px-4 py-3 rounded-xl hover:bg-zinc-200 transition">
                 إضافة
             </button>
         </div>
 
-        <div class="flex items-center justify-between text-xs text-zinc-500 px-1">
+        <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 px-1">
             <label class="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" id="photoToggle" class="rounded bg-zinc-900 border-zinc-800">
-                <span id="uiPhotoLabel">مطلوب صورة إثبات للمهام دي</span>
+                <span id="uiPhotoLabel">مطلوب صورة إثبات</span>
             </label>
+            <div class="flex items-center gap-1">
+                <span id="uiTimeLabel">وقت الموعد:</span>
+                <input type="time" id="startTimeInput" class="bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 text-[11px]">
+                <span>-</span>
+                <input type="time" id="endTimeInput" class="bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 text-[11px]">
+            </div>
         </div>
     </div>
 
     <script>
-        let currentLang = localStorage.getItem('app_lang') || 'ar'; // 'ar' for Egyptian Arabic, 'en' for English
+        let currentLang = localStorage.getItem('app_lang') || 'ar';
         let selectedDate = new Date().toISOString().split('T')[0];
-        let tasks = JSON.parse(localStorage.getItem('ai_tasks_egypt') || '[]');
+        let tasks = JSON.parse(localStorage.getItem('ai_tasks_master') || '[]');
+        let currentTab = 'tasks';
         let recognition = null;
         let isRecording = false;
 
         document.getElementById('datePicker').value = selectedDate;
         applyLanguageUI();
+        requestNotificationPermission();
 
         function saveTasks() {
-            localStorage.setItem('ai_tasks_egypt', JSON.stringify(tasks));
+            localStorage.setItem('ai_tasks_master', JSON.stringify(tasks));
             render();
+        }
+
+        function requestNotificationPermission() {
+            if ("Notification" in window && Notification.permission === "default") {
+                Notification.requestPermission();
+            }
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            const viewTasks = document.getElementById('viewTasks');
+            const viewStats = document.getElementById('viewStats');
+            const tabTasksBtn = document.getElementById('tabTasksBtn');
+            const tabStatsBtn = document.getElementById('tabStatsBtn');
+
+            if (tab === 'tasks') {
+                viewTasks.classList.remove('hidden');
+                viewStats.classList.add('hidden');
+                tabTasksBtn.className = "flex-1 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 text-white transition";
+                tabStatsBtn.className = "flex-1 py-1.5 text-xs font-semibold rounded-lg text-zinc-400 hover:text-white transition";
+            } else {
+                viewTasks.classList.add('hidden');
+                viewStats.classList.remove('hidden');
+                tabStatsBtn.className = "flex-1 py-1.5 text-xs font-semibold rounded-lg bg-zinc-800 text-white transition";
+                tabTasksBtn.className = "flex-1 py-1.5 text-xs font-semibold rounded-lg text-zinc-400 hover:text-white transition";
+                renderHeatmap();
+            }
         }
 
         function toggleLanguage() {
@@ -94,23 +173,39 @@
                 htmlTag.setAttribute('dir', 'rtl');
                 htmlTag.setAttribute('lang', 'ar');
                 document.getElementById('uiTitle').textContent = 'مهامي اليومية';
+                document.getElementById('uiTabTasks').textContent = '📋 المهام اليومية';
+                document.getElementById('uiTabStats').textContent = '🟩 خريطة الالتزام (GitHub)';
                 document.getElementById('uiAiLabel').textContent = 'المساعد الذكي';
                 document.getElementById('uiMissedText').textContent = '⚠️ مهام مخلصلتهاش من أيام قبل كده:';
+                document.getElementById('uiHeatmapTitle').textContent = 'خريطة الالتزام والإنجاز (آخر 30 يوم)';
+                document.getElementById('uiLess').textContent = 'أقل إنجاز';
+                document.getElementById('uiMore').textContent = 'أعلى إنجاز';
+                document.getElementById('uiTotalDone').textContent = 'إجمالي المهام المكتملة';
+                document.getElementById('uiStreak').textContent = 'سلسلة الالتزام المتواصل';
                 document.getElementById('uiListening').textContent = 'سامعك... اتكلم وبص على الكلام بيتكتب';
                 document.getElementById('taskPromptInput').placeholder = 'قول أو اكتب اللي عايز تعمله (مثال: عايز أروح الجيم الساعة ٩ وبعدين أذاكر وكمان أشتري طلبات)...';
                 document.getElementById('uiAddBtn').textContent = 'إضافة';
-                document.getElementById('uiPhotoLabel').textContent = 'مطلوب صورة إثبات للمهام دي';
+                document.getElementById('uiPhotoLabel').textContent = 'مطلوب صورة إثبات';
+                document.getElementById('uiTimeLabel').textContent = 'وقت الموعد:';
                 document.getElementById('langBtn').textContent = 'English';
             } else {
                 htmlTag.setAttribute('dir', 'ltr');
                 htmlTag.setAttribute('lang', 'en');
                 document.getElementById('uiTitle').textContent = 'Daily Tasks';
+                document.getElementById('uiTabTasks').textContent = '📋 Daily Tasks';
+                document.getElementById('uiTabStats').textContent = '🟩 Heatmap (GitHub)';
                 document.getElementById('uiAiLabel').textContent = 'AI ASSISTANT';
                 document.getElementById('uiMissedText').textContent = '⚠️ Unfinished tasks from previous days:';
+                document.getElementById('uiHeatmapTitle').textContent = 'Commitment Heatmap (Last 30 Days)';
+                document.getElementById('uiLess').textContent = 'Less';
+                document.getElementById('uiMore').textContent = 'More';
+                document.getElementById('uiTotalDone').textContent = 'Total Tasks Done';
+                document.getElementById('uiStreak').textContent = 'Current Day Streak';
                 document.getElementById('uiListening').textContent = 'Listening... Speak your tasks clearly';
                 document.getElementById('taskPromptInput').placeholder = 'Say or type what you want to do (e.g. workout at 9am, then study math, and buy groceries)...';
                 document.getElementById('uiAddBtn').textContent = 'Add';
-                document.getElementById('uiPhotoLabel').textContent = 'Require photo proof for these tasks';
+                document.getElementById('uiPhotoLabel').textContent = 'Require photo proof';
+                document.getElementById('uiTimeLabel').textContent = 'Time window:';
                 document.getElementById('langBtn').textContent = 'عربي';
             }
         }
@@ -120,7 +215,7 @@
             render();
         }
 
-        // --- SPEECH RECOGNITION (EGYPTIAN ARABIC 'ar-EG' & ENGLISH 'en-US') ---
+        // --- SPEECH RECOGNITION ---
         function toggleVoiceInput() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
@@ -139,7 +234,6 @@
             recognition = new SpeechRecognition();
             recognition.continuous = true;
             recognition.interimResults = true;
-            // Sets exact dialect: Egyptian Arabic for 'ar', US English for 'en'
             recognition.lang = currentLang === 'ar' ? 'ar-EG' : 'en-US';
 
             recognition.onstart = () => {
@@ -172,20 +266,19 @@
             statusLabel.classList.add('hidden');
         }
 
-        // --- EGYPTIAN DIALECT PARSER & TRANSITION SPLITTER ---
+        // --- DIALECT PARSER & TASK CREATOR ---
         function processInputPrompt() {
             const text = document.getElementById('taskPromptInput').value.trim();
             if (!text) return;
 
-            // Regex for Egyptian dialect transitions: وبعدين | وبعد كده | وكمان | وبعديها | ثم | and then | then
             const transitionRegex = /,|\n|\b(?:وبعدين|وبعد كده|وكمان|وبعديها|عايز كمان|وراي كمان|ثم|and then|then|also|after that)\b/gi;
             const rawTasks = text.split(transitionRegex);
             const photoRequired = document.getElementById('photoToggle').checked;
+            const startTime = document.getElementById('startTimeInput').value || null;
+            const endTime = document.getElementById('endTimeInput').value || null;
 
             rawTasks.forEach(rawItem => {
                 let cleanTitle = rawItem.trim();
-
-                // Clean leading Egyptian filler phrases: "عايز أعمل", "محتاج أعمل", "وراي", "النهارده عايز"
                 cleanTitle = cleanTitle.replace(/^(عايز أعمل|عايز|محتاج أعمل|محتاج|وراي|النهارده عايز|النهارده محتاج|I want to|I need to|today I want to)\s+/gi, '');
 
                 if (cleanTitle.length > 1) {
@@ -193,6 +286,8 @@
                         id: Date.now() + Math.random(),
                         title: cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1),
                         date: selectedDate,
+                        startTime: startTime,
+                        endTime: endTime,
                         completed: false,
                         needsPhoto: photoRequired,
                         photoUrl: null
@@ -202,6 +297,8 @@
 
             document.getElementById('taskPromptInput').value = '';
             document.getElementById('photoToggle').checked = false;
+            document.getElementById('startTimeInput').value = '';
+            document.getElementById('endTimeInput').value = '';
             saveTasks();
         }
 
@@ -245,6 +342,58 @@
             saveTasks();
         }
 
+        // --- RENDER HEATMAP ---
+        function renderHeatmap() {
+            const grid = document.getElementById('heatmapGrid');
+            grid.innerHTML = '';
+
+            let totalDone = 0;
+            const days = 30;
+            const todayObj = new Date();
+
+            for (let i = days - 1; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(todayObj.getDate() - i);
+                const dateStr = d.toISOString().split('T')[0];
+
+                const dayTasks = tasks.filter(t => t.date === dateStr);
+                const doneCount = dayTasks.filter(t => t.completed).length;
+                totalDone += doneCount;
+
+                let colorClass = 'bg-zinc-800';
+                if (doneCount === 1) colorClass = 'bg-emerald-900';
+                else if (doneCount === 2) colorClass = 'bg-emerald-700';
+                else if (doneCount === 3) colorClass = 'bg-emerald-500';
+                else if (doneCount >= 4) colorClass = 'bg-emerald-400';
+
+                const cell = document.createElement('div');
+                cell.className = `heatmap-cell ${colorClass}`;
+                cell.title = `${dateStr}: ${doneCount} tasks completed`;
+                grid.appendChild(cell);
+            }
+
+            document.getElementById('statCompletedCount').textContent = totalDone;
+            document.getElementById('statStreak').textContent = `${calculateStreak()} ${currentLang === 'ar' ? 'أيام' : 'days'}`;
+        }
+
+        function calculateStreak() {
+            let streak = 0;
+            const todayObj = new Date();
+            for (let i = 0; i < 30; i++) {
+                const d = new Date();
+                d.setDate(todayObj.getDate() - i);
+                const dateStr = d.toISOString().split('T')[0];
+                const dayTasks = tasks.filter(t => t.date === dateStr);
+                if (dayTasks.length > 0 && dayTasks.every(t => t.completed)) {
+                    streak++;
+                } else if (i > 0) {
+                    break;
+                }
+            }
+            return streak;
+        }
+
+        // --- RENDER MAIN UI ---
         function render() {
             const list = document.getElementById('taskList');
             list.innerHTML = '';
@@ -252,7 +401,7 @@
             const todayTasks = tasks.filter(t => t.date === selectedDate);
             const today = new Date().toISOString().split('T')[0];
 
-            // Render Missed Tasks
+            // Render Missed Tasks Section
             const missedSection = document.getElementById('missedTasksSection');
             const missedList = document.getElementById('missedList');
             missedList.innerHTML = '';
@@ -265,7 +414,7 @@
                         const div = document.createElement('div');
                         div.className = 'flex justify-between items-center text-xs bg-zinc-900 p-2.5 rounded-lg border border-zinc-800';
                         div.innerHTML = `
-                            <span class="text-zinc-300 truncate max-w-[150px]">${task.title}</span>
+                            <span class="text-zinc-300 truncate max-w-[140px]">${task.title}</span>
                             <div class="flex gap-1.5">
                                 <button onclick="rescheduleTask(${task.id}, '${today}')" class="bg-blue-600 text-white px-2.5 py-1 rounded">${currentLang === 'ar' ? 'النهارده' : 'Today'}</button>
                                 <button onclick="dropTask(${task.id})" class="bg-red-900/60 text-red-300 px-2.5 py-1 rounded">${currentLang === 'ar' ? 'مسح' : 'Drop'}</button>
@@ -280,19 +429,28 @@
                 missedSection.classList.add('hidden');
             }
 
-            // Render Tasks
+            // Render Today's Tasks
             if (todayTasks.length === 0) {
                 list.innerHTML = `<p class="text-xs text-zinc-600 text-center py-8">${currentLang === 'ar' ? 'مفيش مهام متسجلة لليوم ده.' : 'No tasks scheduled for this day.'}</p>`;
             } else {
                 todayTasks.forEach(task => {
                     const div = document.createElement('div');
                     div.className = `flex items-center justify-between p-3.5 rounded-xl border ${task.completed ? 'bg-zinc-950 border-zinc-900 text-zinc-600' : 'bg-zinc-900 border-zinc-800 text-zinc-200'}`;
+                    
+                    let timeBadge = '';
+                    if (task.startTime || task.endTime) {
+                        timeBadge = `<span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">⏰ ${task.startTime || ''} ${task.endTime ? '- ' + task.endTime : ''}</span>`;
+                    }
+
                     div.innerHTML = `
                         <div class="flex items-center gap-3">
                             <button onclick="toggleTask(${task.id})" class="text-lg">
                                 ${task.completed ? '✅' : '⭕'}
                             </button>
-                            <span class="text-sm ${task.completed ? 'line-through' : ''}">${task.title}</span>
+                            <div>
+                                <p class="text-sm ${task.completed ? 'line-through' : ''}">${task.title}</p>
+                                ${timeBadge}
+                            </div>
                         </div>
                         <div class="flex items-center gap-2">
                             ${task.needsPhoto ? `<span class="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">${task.photoUrl ? (currentLang === 'ar' ? '📷 موثق' : '📷 Verified') : (currentLang === 'ar' ? '📷 مطلوب صورة' : '📷 Photo Needed')}</span>` : ''}
@@ -303,7 +461,7 @@
                 });
             }
 
-            // AI Greeting Updates
+            // Update AI Greeting
             const aiGreeting = document.getElementById('aiGreeting');
             const doneCount = todayTasks.filter(t => t.completed).length;
             if (todayTasks.length === 0) {
@@ -319,6 +477,8 @@
                     ? `خلصت ${doneCount} من أصل ${todayTasks.length} مهام النهارده. كمل يا بطل!` 
                     : `You have completed ${doneCount} out of ${todayTasks.length} tasks for this day. Keep going!`;
             }
+
+            if (currentTab === 'stats') renderHeatmap();
         }
 
         render();
