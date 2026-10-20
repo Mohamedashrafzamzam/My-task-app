@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Minimal AI Task Tracker</title>
+    <link rel="manifest" href="data:application/json,{\"name\":\"Task Tracker\",\"short_name\":\"Tasks\",\"start_url\":\".\",\"display\":\"standalone\",\"background_color\":\"#000000\",\"theme_color\":\"#000000\"}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #09090b; color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    </style>
+</head>
+<body class="max-w-md mx-auto min-h-screen flex flex-col justify-between p-4 pb-8">
+
+    <!-- Top Navigation & Date Picker -->
+    <div>
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-xl font-bold tracking-tight">Today's Tasks</h1>
+            <input type="date" id="datePicker" onchange="changeDate()" class="bg-zinc-800 text-sm text-zinc-200 px-3 py-1.5 rounded-lg border border-zinc-700 outline-none">
+        </div>
+
+        <!-- AI Assistant Greeting Box -->
+        <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl mb-4">
+            <div class="flex items-center gap-2 text-xs font-semibold text-purple-400 mb-1">
+                <span>✦</span> <span>AI ASSISTANT</span>
+            </div>
+            <p id="aiGreeting" class="text-sm text-zinc-300">Loading your tasks...</p>
+        </div>
+
+        <!-- Missed Tasks Alert Section -->
+        <div id="missedTasksSection" class="hidden bg-amber-950/40 border border-amber-800/50 p-3 rounded-xl mb-4">
+            <p class="text-xs text-amber-400 font-semibold mb-2">⚠️ Unfinished tasks from previous days:</p>
+            <div id="missedList" class="space-y-2"></div>
+        </div>
+
+        <!-- Tasks List -->
+        <div id="taskList" class="space-y-2"></div>
+    </div>
+
+    <!-- Bottom Controls: Voice & Text Entry -->
+    <div class="pt-4 border-t border-zinc-800">
+        <div class="flex items-center gap-2 mb-2">
+            <button id="micBtn" onclick="toggleVoice()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 p-3 rounded-xl transition">
+                🎤
+            </button>
+            <input type="text" id="taskInput" placeholder="Type tasks or prompt AI..." class="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-zinc-600">
+            <button onclick="addTask()" class="bg-white text-black font-semibold text-sm px-4 py-3 rounded-xl hover:bg-zinc-200 transition">
+                Add
+            </button>
+        </div>
+        <div class="flex items-center justify-between text-xs text-zinc-500 px-1">
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="photoToggle" class="rounded bg-zinc-900 border-zinc-800">
+                <span>Require photo proof</span>
+            </label>
+        </div>
+    </div>
+
+    <script>
+        let selectedDate = new Date().toISOString().split('T')[0];
+        let tasks = JSON.parse(localStorage.getItem('ai_tasks') || '[]');
+
+        document.getElementById('datePicker').value = selectedDate;
+
+        function saveTasks() {
+            localStorage.setItem('ai_tasks', JSON.stringify(tasks));
+            render();
+        }
+
+        function changeDate() {
+            selectedDate = document.getElementById('datePicker').value;
+            render();
+        }
+
+        function addTask() {
+            const input = document.getElementById('taskInput');
+            const title = input.value.trim();
+            if (!title) return;
+
+            const photoRequired = document.getElementById('photoToggle').checked;
+
+            tasks.push({
+                id: Date.now(),
+                title: title,
+                date: selectedDate,
+                completed: false,
+                needsPhoto: photoRequired,
+                photoUrl: null
+            });
+
+            input.value = '';
+            document.getElementById('photoToggle').checked = false;
+            saveTasks();
+        }
+
+        function toggleTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+
+            if (task.needsPhoto && !task.completed && !task.photoUrl) {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            task.photoUrl = reader.result;
+                            task.completed = true;
+                            saveTasks();
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                };
+                input.click();
+            } else {
+                task.completed = !task.completed;
+                saveTasks();
+            }
+        }
+
+        function rescheduleTask(id, targetDate) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.date = targetDate;
+                saveTasks();
+            }
+        }
+
+        function dropTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            saveTasks();
+        }
+
+        function render() {
+            const list = document.getElementById('taskList');
+            list.innerHTML = '';
+
+            const todayTasks = tasks.filter(t => t.date === selectedDate);
+            const today = new Date().toISOString().split('T')[0];
+
+            // Render Missed Tasks if viewing today
+            const missedSection = document.getElementById('missedTasksSection');
+            const missedList = document.getElementById('missedList');
+            missedList.innerHTML = '';
+
+            if (selectedDate === today) {
+                const missed = tasks.filter(t => t.date < today && !t.completed);
+                if (missed.length > 0) {
+                    missedSection.classList.remove('hidden');
+                    missed.forEach(task => {
+                        const div = document.createElement('div');
+                        div.className = 'flex justify-between items-center text-xs bg-zinc-900 p-2 rounded-lg border border-zinc-800';
+                        div.innerHTML = `
+                            <span class="text-zinc-300 truncate max-w-[150px]">${task.title}</span>
+                            <div class="flex gap-1">
+                                <button onclick="rescheduleTask(${task.id}, '${today}')" class="bg-blue-600 text-white px-2 py-1 rounded">Tomorrow</button>
+                                <button onclick="dropTask(${task.id})" class="bg-red-900/60 text-red-300 px-2 py-1 rounded">Drop</button>
+                            </div>
+                        `;
+                        missedList.appendChild(div);
+                    });
+                } else {
+                    missedSection.classList.add('hidden');
+                }
+            } else {
+                missedSection.classList.add('hidden');
+            }
+
+            // Render Today's Tasks
+            if (todayTasks.length === 0) {
+                list.innerHTML = `<p class="text-xs text-zinc-600 text-center py-8">No tasks scheduled for this day.</p>`;
+            } else {
+                todayTasks.forEach(task => {
+                    const div = document.createElement('div');
+                    div.className = `flex items-center justify-between p-3 rounded-xl border ${task.completed ? 'bg-zinc-950 border-zinc-900 text-zinc-600' : 'bg-zinc-900 border-zinc-800 text-zinc-200'}`;
+                    div.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <button onclick="toggleTask(${task.id})" class="text-lg">
+                                ${task.completed ? '✅' : '⭕'}
+                            </button>
+                            <span class="text-sm ${task.completed ? 'line-through' : ''}">${task.title}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            ${task.needsPhoto ? `<span class="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">📷 ${task.photoUrl ? 'Proof Added' : 'Photo Required'}</span>` : ''}
+                            <button onclick="dropTask(${task.id})" class="text-xs text-zinc-600 hover:text-red-400">✕</button>
+                        </div>
+                    `;
+                    list.appendChild(div);
+                });
+            }
+
+            // Update AI Greeting
+            const aiGreeting = document.getElementById('aiGreeting');
+            const doneCount = todayTasks.filter(t => t.completed).length;
+            if (todayTasks.length === 0) {
+                aiGreeting.textContent = "Your day is clear! Speak or type to add what you want to achieve today.";
+            } else if (doneCount === todayTasks.length) {
+                aiGreeting.textContent = `🎉 Fantastic job! You finished all ${todayTasks.length} tasks for this day.`;
+            } else {
+                aiGreeting.textContent = `You have completed ${doneCount} of ${todayTasks.length} tasks planned for this day. Keep going!`;
+            }
+        }
+
+        // Voice Input Functionality
+        function toggleVoice() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Speech recognition is not supported on this browser.");
+                return;
+            }
+            const recognition = new SpeechRecognition();
+            const micBtn = document.getElementById('micBtn');
+            micBtn.classList.add('bg-red-600');
+
+            recognition.onresult = (event) => {
+                const text = event.results[0][0].transcript;
+                document.getElementById('taskInput').value = text;
+                micBtn.classList.remove('bg-red-600');
+            };
+
+            recognition.onerror = () => micBtn.classList.remove('bg-red-600');
+            recognition.onend = () => micBtn.classList.remove('bg-red-600');
+
+            recognition.start();
+        }
+
+        render();
+    </script>
+</body>
+</html>
