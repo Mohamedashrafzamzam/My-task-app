@@ -15,16 +15,28 @@
     <!-- Top Navigation & Date Picker -->
     <div>
         <div class="flex justify-between items-center mb-4">
-            <h1 class="text-xl font-bold tracking-tight">Today's Tasks</h1>
+            <h1 class="text-xl font-bold tracking-tight">AI Task Planner</h1>
             <input type="date" id="datePicker" onchange="changeDate()" class="bg-zinc-800 text-sm text-zinc-200 px-3 py-1.5 rounded-lg border border-zinc-700 outline-none">
         </div>
 
         <!-- AI Assistant Greeting Box -->
         <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl mb-4">
-            <div class="flex items-center gap-2 text-xs font-semibold text-purple-400 mb-1">
-                <span>✦</span> <span>AI ASSISTANT</span>
+            <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center gap-2 text-xs font-semibold text-purple-400">
+                    <span>✦</span> <span>SMART AI ASSISTANT</span>
+                </div>
+                <button onclick="toggleApiKeyInput()" class="text-xs text-zinc-500 hover:text-zinc-300 underline">Configure Free AI Key</button>
             </div>
-            <p id="aiGreeting" class="text-sm text-zinc-300">Loading your tasks...</p>
+            <p id="aiGreeting" class="text-sm text-zinc-300">Type or prompt what you want to do today in one sentence.</p>
+            
+            <!-- Hidden API Key Input Box (Free from Google AI Studio) -->
+            <div id="apiKeySection" class="hidden mt-3 pt-3 border-t border-zinc-800">
+                <p class="text-xs text-zinc-400 mb-1">Enter your free Google Gemini API Key (saved locally on your phone only):</p>
+                <div class="flex gap-2">
+                    <input type="password" id="apiKeyInput" placeholder="Paste Gemini API key..." class="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-200">
+                    <button onclick="saveApiKey()" class="bg-purple-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium">Save</button>
+                </div>
+            </div>
         </div>
 
         <!-- Missed Tasks Alert Section -->
@@ -37,34 +49,45 @@
         <div id="taskList" class="space-y-2"></div>
     </div>
 
-    <!-- Bottom Controls: Voice & Text Entry -->
+    <!-- Bottom Controls: Smart Prompt Entry -->
     <div class="pt-4 border-t border-zinc-800">
         <div class="flex items-center gap-2 mb-2">
-            <button id="micBtn" onclick="toggleVoice()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 p-3 rounded-xl transition">
-                🎤
-            </button>
-            <input type="text" id="taskInput" placeholder="Type tasks or prompt AI..." class="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-zinc-600">
-            <button onclick="addTask()" class="bg-white text-black font-semibold text-sm px-4 py-3 rounded-xl hover:bg-zinc-200 transition">
-                Add
+            <textarea id="taskPromptInput" rows="1" placeholder="E.g., I want to do workout at 9am, study math, and clean my room..." class="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-zinc-600 resize-none"></textarea>
+            <button onclick="processSmartPrompt()" id="submitBtn" class="bg-white text-black font-semibold text-sm px-4 py-3 rounded-xl hover:bg-zinc-200 transition">
+                Generate
             </button>
         </div>
         <div class="flex items-center justify-between text-xs text-zinc-500 px-1">
             <label class="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" id="photoToggle" class="rounded bg-zinc-900 border-zinc-800">
-                <span>Require photo proof</span>
+                <span>Require photo proof for tasks</span>
             </label>
         </div>
     </div>
 
     <script>
         let selectedDate = new Date().toISOString().split('T')[0];
-        let tasks = JSON.parse(localStorage.getItem('ai_tasks') || '[]');
+        let tasks = JSON.parse(localStorage.getItem('ai_smart_tasks') || '[]');
+        let apiKey = localStorage.getItem('gemini_api_key') || '';
 
         document.getElementById('datePicker').value = selectedDate;
+        if (apiKey) document.getElementById('apiKeyInput').value = apiKey;
 
         function saveTasks() {
-            localStorage.setItem('ai_tasks', JSON.stringify(tasks));
+            localStorage.setItem('ai_smart_tasks', JSON.stringify(tasks));
             render();
+        }
+
+        function toggleApiKeyInput() {
+            const section = document.getElementById('apiKeySection');
+            section.classList.toggle('hidden');
+        }
+
+        function saveApiKey() {
+            apiKey = document.getElementById('apiKeyInput').value.trim();
+            localStorage.setItem('gemini_api_key', apiKey);
+            alert("API Key saved securely to your local browser storage!");
+            toggleApiKeyInput();
         }
 
         function changeDate() {
@@ -72,24 +95,79 @@
             render();
         }
 
-        function addTask() {
-            const input = document.getElementById('taskInput');
-            const title = input.value.trim();
-            if (!title) return;
+        // Send user prompt to Google Gemini Free Tier API to parse multiple tasks automatically
+        async function processSmartPrompt() {
+            const promptText = document.getElementById('taskPromptInput').value.trim();
+            if (!promptText) return;
 
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.textContent = "...";
+
+            if (!apiKey) {
+                // Fallback smart parser if no API key is provided yet
+                fallbackParser(promptText);
+                submitBtn.textContent = "Generate";
+                document.getElementById('taskPromptInput').value = '';
+                return;
+            }
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: `Extract distinct tasks from this user request: "${promptText}". Return ONLY a raw JSON array of strings, where each string is a clear independent task title. No formatting blocks, no markdown formatting like \`\`\`json, just the raw array format like ["Task 1", "Task 2"]`
+                            }]
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                let rawText = data.candidates[0].content.parts[0].text.trim();
+                rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+                
+                const extractedTasks = JSON.parse(rawText);
+                const photoRequired = document.getElementById('photoToggle').checked;
+
+                extractedTasks.forEach(title => {
+                    tasks.push({
+                        id: Date.now() + Math.random(),
+                        title: title,
+                        date: selectedDate,
+                        completed: false,
+                        needsPhoto: photoRequired,
+                        photoUrl: null
+                    });
+                });
+
+                document.getElementById('taskPromptInput').value = '';
+                document.getElementById('photoToggle').checked = false;
+                saveTasks();
+            } catch (error) {
+                alert("AI parsing error. Falling back to standard text entry. Check your API key.");
+                fallbackParser(promptText);
+            } finally {
+                submitBtn.textContent = "Generate";
+            }
+        }
+
+        // Fallback local splitter if user hasn't put an API key yet
+        function fallbackParser(text) {
+            const splitItems = text.split(/,|\n| and /i).map(t => t.trim()).filter(t => t.length > 0);
             const photoRequired = document.getElementById('photoToggle').checked;
-
-            tasks.push({
-                id: Date.now(),
-                title: title,
-                date: selectedDate,
-                completed: false,
-                needsPhoto: photoRequired,
-                photoUrl: null
+            
+            splitItems.forEach(title => {
+                tasks.push({
+                    id: Date.now() + Math.random(),
+                    title: title,
+                    date: selectedDate,
+                    completed: false,
+                    needsPhoto: photoRequired,
+                    photoUrl: null
+                });
             });
-
-            input.value = '';
-            document.getElementById('photoToggle').checked = false;
             saveTasks();
         }
 
@@ -140,7 +218,7 @@
             const todayTasks = tasks.filter(t => t.date === selectedDate);
             const today = new Date().toISOString().split('T')[0];
 
-            // Render Missed Tasks if viewing today
+            // Render Missed Tasks
             const missedSection = document.getElementById('missedTasksSection');
             const missedList = document.getElementById('missedList');
             missedList.innerHTML = '';
@@ -168,9 +246,9 @@
                 missedSection.classList.add('hidden');
             }
 
-            // Render Today's Tasks
+            // Render Tasks
             if (todayTasks.length === 0) {
-                list.innerHTML = `<p class="text-xs text-zinc-600 text-center py-8">No tasks scheduled for this day.</p>`;
+                list.innerHTML = `<p class="text-xs text-zinc-600 text-center py-8">No tasks scheduled for this day. Give the AI a prompt below!</p>`;
             } else {
                 todayTasks.forEach(task => {
                     const div = document.createElement('div');
@@ -183,7 +261,7 @@
                             <span class="text-sm ${task.completed ? 'line-through' : ''}">${task.title}</span>
                         </div>
                         <div class="flex items-center gap-2">
-                            ${task.needsPhoto ? `<span class="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">📷 ${task.photoUrl ? 'Proof Added' : 'Photo Required'}</span>` : ''}
+                            ${task.needsPhoto ? `<span class="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">📷 ${task.photoUrl ? 'Verified' : 'Photo Needed'}</span>` : ''}
                             <button onclick="dropTask(${task.id})" class="text-xs text-zinc-600 hover:text-red-400">✕</button>
                         </div>
                     `;
@@ -191,39 +269,16 @@
                 });
             }
 
-            // Update AI Greeting
+            // Update Greeting
             const aiGreeting = document.getElementById('aiGreeting');
             const doneCount = todayTasks.filter(t => t.completed).length;
             if (todayTasks.length === 0) {
-                aiGreeting.textContent = "Your day is clear! Speak or type to add what you want to achieve today.";
+                aiGreeting.textContent = "Your day is clear. Tell me what you want to achieve today in a single prompt.";
             } else if (doneCount === todayTasks.length) {
-                aiGreeting.textContent = `🎉 Fantastic job! You finished all ${todayTasks.length} tasks for this day.`;
+                aiGreeting.textContent = `🎉 Awesome! You completed all ${todayTasks.length} tasks for this day.`;
             } else {
-                aiGreeting.textContent = `You have completed ${doneCount} of ${todayTasks.length} tasks planned for this day. Keep going!`;
+                aiGreeting.textContent = `You finished ${doneCount} of ${todayTasks.length} tasks today. Keep pushing!`;
             }
-        }
-
-        // Voice Input Functionality
-        function toggleVoice() {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                alert("Speech recognition is not supported on this browser.");
-                return;
-            }
-            const recognition = new SpeechRecognition();
-            const micBtn = document.getElementById('micBtn');
-            micBtn.classList.add('bg-red-600');
-
-            recognition.onresult = (event) => {
-                const text = event.results[0][0].transcript;
-                document.getElementById('taskInput').value = text;
-                micBtn.classList.remove('bg-red-600');
-            };
-
-            recognition.onerror = () => micBtn.classList.remove('bg-red-600');
-            recognition.onend = () => micBtn.classList.remove('bg-red-600');
-
-            recognition.start();
         }
 
         render();
