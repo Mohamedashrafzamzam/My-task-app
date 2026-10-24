@@ -1,862 +1,561 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>متابع المهام بالذكاء الاصطناعي</title>
-    <link rel="manifest" href="data:application/json,{\"name\":\"متابع المهام\",\"short_name\":\"مهامي\",\"start_url\":\".\",\"display\":\"standalone\",\"background_color\":\"#000000\",\"theme_color\":\"#000000\"}">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Supabase JS Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { 
-            background-color: #09090b; 
-            color: #f4f4f5; 
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; 
-            transition: background-image 1.5s ease-in-out, background-color 0.5s ease;
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-            background-repeat: no-repeat;
-        }
-        .recording-pulse { animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-        .heatmap-cell { width: 14px; height: 14px; border-radius: 3px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>متابع المهام بالذكاء الاصطناعي</title>
+<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;متابع المهام&quot;,&quot;short_name&quot;:&quot;مهامي&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;#000000&quot;,&quot;theme_color&quot;:&quot;#000000&quot;}">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  body{background-color:#09090b;color:#f4f4f5;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+  .recording-pulse{animation:pulse 1.5s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .heatmap-cell{width:14px;height:14px;border-radius:3px}
+  .bgbox{position:fixed;inset:0;z-index:-1}
+  .bg-layer{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 1.8s ease}
+  #fsOverlay{position:fixed;inset:0;z-index:100;background:#000;color:#fff}
+  #fsOverlay .shade{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(0,0,0,.25),rgba(0,0,0,.6))}
+  #quoteBox{transition:opacity .8s ease;text-shadow:0 2px 18px rgba(0,0,0,.7)}
+</style>
 </head>
 <body id="appBody" class="max-w-md mx-auto min-h-screen flex flex-col justify-between p-4 pb-24">
 
-    <!-- AUTH SCREEN -->
-    <div id="authScreen" class="flex flex-col justify-center min-h-[80vh] space-y-4">
-        <div class="text-center mb-4">
-            <h1 class="text-2xl font-bold">مرحبًا بك 👋</h1>
-            <p class="text-xs text-zinc-400 mt-1">سجل دخولك لحفظ مهامك والتزامك في حسابك الخاص</p>
-        </div>
-        <div class="bg-zinc-900/90 p-4 rounded-xl border border-zinc-800 space-y-3">
-            <input type="email" id="authEmail" placeholder="البريد الإلكتروني (Email)" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm focus:outline-none">
-            <input type="password" id="authPassword" placeholder="كلمة السر (Password)" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm focus:outline-none">
-            <div class="flex gap-2 pt-2">
-                <button onclick="handleLogin()" class="flex-1 bg-white text-black font-semibold text-sm py-2.5 rounded-lg">تسجيل الدخول</button>
-                <button onclick="handleSignUp()" class="flex-1 bg-zinc-800 text-zinc-200 font-semibold text-sm py-2.5 rounded-lg border border-zinc-700">حساب جديد</button>
-            </div>
-        </div>
+<div id="pageBg" class="bgbox"></div>
+
+<!-- FULLSCREEN STUDY MODE -->
+<div id="fsOverlay" class="hidden">
+  <div id="fsBg" class="absolute inset-0"></div>
+  <div class="shade"></div>
+  <button onclick="exitFS()" class="absolute top-4 right-4 left-auto z-10 bg-black/40 hover:bg-black/60 border border-white/20 text-white text-xs px-3 py-1.5 rounded-lg backdrop-blur" style="inset-inline-end:1rem;right:auto">✕ <span data-i18n="exitFs">خروج</span></button>
+  <div class="absolute inset-0 flex items-center justify-center px-8 text-center">
+    <div id="quoteBox" class="max-w-2xl">
+      <p id="quoteText" class="text-2xl sm:text-4xl font-semibold leading-relaxed text-white"></p>
+      <p id="quoteAuthor" class="mt-4 text-sm sm:text-base text-white/80"></p>
+    </div>
+  </div>
+  <div class="absolute bottom-6 inset-x-0 flex flex-col items-center gap-2">
+    <span id="fsTimer" class="text-4xl font-mono font-bold text-white/90" style="text-shadow:0 2px 12px rgba(0,0,0,.7)">25:00</span>
+    <button id="fsToggleBtn" onclick="toggleTimer()" class="bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs px-5 py-1.5 rounded-lg backdrop-blur">بدء</button>
+  </div>
+</div>
+
+<!-- AUTH -->
+<div id="authScreen" class="flex flex-col justify-center min-h-[80vh] space-y-4">
+  <div class="text-center mb-4">
+    <h1 class="text-2xl font-bold">مرحبًا بك 👋</h1>
+    <p class="text-xs text-zinc-400 mt-1">سجل دخولك لحفظ مهامك والتزامك في حسابك الخاص</p>
+  </div>
+  <div class="bg-zinc-900/90 p-4 rounded-xl border border-zinc-800 space-y-3">
+    <input type="email" id="authEmail" placeholder="البريد الإلكتروني (Email)" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm focus:outline-none">
+    <input type="password" id="authPassword" placeholder="كلمة السر (Password)" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm focus:outline-none">
+    <div class="flex gap-2 pt-2">
+      <button onclick="handleLogin()" class="flex-1 bg-white text-black font-semibold text-sm py-2.5 rounded-lg">تسجيل الدخول</button>
+      <button onclick="handleSignUp()" class="flex-1 bg-zinc-800 text-zinc-200 font-semibold text-sm py-2.5 rounded-lg border border-zinc-700">حساب جديد</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appScreen" class="hidden">
+  <div>
+    <div class="flex justify-between items-center mb-4">
+      <div class="flex items-center gap-2">
+        <h1 class="text-xl font-bold tracking-tight" data-i18n="title">مهامي اليومية</h1>
+        <button onclick="handleSignOut()" class="text-[10px] text-red-400 bg-red-950/40 px-2 py-1 rounded border border-red-900/50" data-i18n="logout">خروج</button>
+      </div>
+      <div class="flex gap-2 items-center">
+        <button onclick="toggleLanguage()" id="langBtn" class="bg-zinc-800/90 text-xs px-2.5 py-1.5 rounded-lg border border-zinc-700 text-purple-400 font-medium">English</button>
+        <input type="date" id="datePicker" onchange="changeDate()" class="bg-zinc-800/90 text-xs text-zinc-200 px-2 py-1.5 rounded-lg border border-zinc-700 outline-none">
+      </div>
     </div>
 
-    <!-- MAIN APP SCREEN -->
-    <div id="appScreen" class="hidden">
-        <!-- Header -->
-        <div>
-            <div class="flex justify-between items-center mb-4">
-                <div class="flex items-center gap-2">
-                    <h1 class="text-xl font-bold tracking-tight" id="uiTitle">مهامي اليومية</h1>
-                    <button onclick="handleSignOut()" class="text-[10px] text-red-400 bg-red-950/40 px-2 py-1 rounded border border-red-900/50">خروج</button>
-                </div>
-                <div class="flex gap-2 items-center">
-                    <button onclick="toggleLanguage()" id="langBtn" class="bg-zinc-800/90 text-xs px-2.5 py-1.5 rounded-lg border border-zinc-700 text-purple-400 font-medium">English</button>
-                    <input type="date" id="datePicker" onchange="changeDate()" class="bg-zinc-800/90 text-xs text-zinc-200 px-2 py-1.5 rounded-lg border border-zinc-700 outline-none">
-                </div>
-            </div>
-
-            <!-- Navigation Tabs -->
-            <div class="flex bg-zinc-900/80 p-1 rounded-xl border border-zinc-800 mb-4 gap-1 backdrop-blur-md">
-                <button id="tabTasksBtn" onclick="switchTab('tasks')" class="flex-1 py-1.5 text-[11px] font-semibold rounded-lg bg-zinc-800 text-white transition">
-                    <span id="uiTabTasks">📋 المهام</span>
-                </button>
-                <button id="tabStatsBtn" onclick="switchTab('stats')" class="flex-1 py-1.5 text-[11px] font-semibold rounded-lg text-zinc-400 hover:text-white transition">
-                    <span id="uiTabStats">🟩 الالتزام</span>
-                </button>
-                <button id="tabFocusBtn" onclick="switchTab('focus')" class="flex-1 py-1.5 text-[11px] font-semibold rounded-lg text-zinc-400 hover:text-white transition">
-                    <span id="uiTabFocus">🍅 التركيز</span>
-                </button>
-            </div>
-
-            <!-- TAB 1: DAILY TASKS VIEW -->
-            <div id="viewTasks">
-                <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl mb-4 backdrop-blur-md">
-                    <div class="flex items-center gap-2 text-xs font-semibold text-purple-400 mb-1">
-                        <span>✦</span> <span id="uiAiLabel">المساعد الذكي</span>
-                    </div>
-                    <p id="aiGreeting" class="text-sm text-zinc-300">جاري تحميل مهامك...</p>
-                </div>
-
-                <div id="missedTasksSection" class="hidden bg-amber-950/40 border border-amber-800/50 p-3 rounded-xl mb-4 backdrop-blur-md">
-                    <p class="text-xs text-amber-400 font-semibold mb-2" id="uiMissedText">⚠️ مهام مخلصلتهاش من أيام قبل كده:</p>
-                    <div id="missedList" class="space-y-2"></div>
-                </div>
-
-                <div id="taskList" class="space-y-2"></div>
-            </div>
-
-            <!-- TAB 2: COMMITMENT HEATMAP & STATS VIEW -->
-            <div id="viewStats" class="hidden space-y-4">
-                <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl backdrop-blur-md">
-                    <h2 class="text-sm font-bold text-zinc-200 mb-3" id="uiHeatmapTitle">خريطة الالتزام والإنجاز (آخر 30 يوم)</h2>
-                    <div id="heatmapGrid" class="flex flex-wrap gap-1.5 justify-center p-2 bg-zinc-950/80 rounded-lg border border-zinc-800/60"></div>
-                    <div class="flex justify-between text-[10px] text-zinc-500 mt-3 px-1">
-                        <span id="uiLess">أقل إنجاز</span>
-                        <div class="flex gap-1 items-center">
-                            <div class="heatmap-cell bg-zinc-800"></div>
-                            <div class="heatmap-cell bg-emerald-900"></div>
-                            <div class="heatmap-cell bg-emerald-700"></div>
-                            <div class="heatmap-cell bg-emerald-500"></div>
-                            <div class="heatmap-cell bg-emerald-400"></div>
-                        </div>
-                        <span id="uiMore">أعلى إنجاز</span>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl text-center backdrop-blur-md">
-                        <p class="text-2xl font-extrabold text-emerald-400" id="statCompletedCount">0</p>
-                        <p class="text-xs text-zinc-500 mt-1" id="uiTotalDone">إجمالي المهام المكتملة</p>
-                    </div>
-                    <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl text-center backdrop-blur-md">
-                        <p class="text-2xl font-extrabold text-purple-400" id="statStreak">0 أيام</p>
-                        <p class="text-xs text-zinc-500 mt-1" id="uiStreak">سلسلة الالتزام المتواصل</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TAB 3: FOCUS TIMER, VISUAL WALLPAPERS & SOUNDS -->
-            <div id="viewFocus" class="hidden space-y-4">
-                <div id="focusCard" class="bg-zinc-900/80 border border-zinc-800 p-5 rounded-2xl text-center shadow-2xl backdrop-blur-md transition-all duration-500">
-                    <!-- Mode Selectors -->
-                    <div class="flex justify-center gap-2 mb-6">
-                        <button onclick="setTimerMode('work')" id="modeWorkBtn" class="px-3 py-1 text-xs font-bold rounded-lg bg-red-600 text-white transition">🍅 <span id="uiWorkMode">وقت العمل</span></button>
-                        <button onclick="setTimerMode('shortBreak')" id="modeShortBtn" class="px-3 py-1 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-400 transition">☕ <span id="uiShortBreak">راحة قصيرة</span></button>
-                        <button onclick="setTimerMode('longBreak')" id="modeLongBtn" class="px-3 py-1 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-400 transition">🌴 <span id="uiLongBreak">راحة طويلة</span></button>
-                    </div>
-
-                    <!-- Timer Display -->
-                    <div class="my-6">
-                        <span id="timerDisplay" class="text-6xl font-extrabold tracking-wider font-mono drop-shadow-md">25:00</span>
-                    </div>
-
-                    <!-- Timer Controls -->
-                    <div class="flex justify-center gap-3 mb-6">
-                        <button onclick="toggleTimer()" id="timerToggleBtn" class="bg-white text-black font-bold px-6 py-2.5 rounded-xl text-sm shadow hover:bg-zinc-200 transition"><span id="uiStartBtn">بدء</span></button>
-                        <button onclick="resetTimer()" class="bg-zinc-800/80 text-zinc-300 px-4 py-2.5 rounded-xl text-sm border border-zinc-700 hover:bg-zinc-700 transition"><span id="uiResetBtn">إعادة ضبط</span></button>
-                    </div>
-
-                    <!-- Session Counter -->
-                    <p class="text-xs text-zinc-400 mb-4"><span id="uiSessionsCompleted">الجلسات المكتملة اليوم:</span> <strong id="sessionCount" class="text-emerald-400 font-bold">0</strong></p>
-
-                    <!-- Custom Duration Settings -->
-                    <div class="border-t border-zinc-800/80 pt-4 mt-4 text-right">
-                        <p class="text-xs font-semibold text-zinc-400 mb-2" id="uiCustomizeTitle">⚙️ تخصيص الأوقات (بالدقائق):</p>
-                        <div class="grid grid-cols-3 gap-2 text-xs">
-                            <div>
-                                <span id="uiCustomWork" class="text-[10px] text-zinc-500">عمل</span>
-                                <input type="number" id="customWorkMin" value="25" min="1" max="120" onchange="updateCustomTimes()" class="w-full bg-zinc-950/80 border border-zinc-800 rounded p-1.5 text-center text-zinc-200">
-                            </div>
-                            <div>
-                                <span id="uiCustomShort" class="text-[10px] text-zinc-500">راحة قصيرة</span>
-                                <input type="number" id="customShortMin" value="5" min="1" max="30" onchange="updateCustomTimes()" class="w-full bg-zinc-950/80 border border-zinc-800 rounded p-1.5 text-center text-zinc-200">
-                            </div>
-                            <div>
-                                <span id="uiCustomLong" class="text-[10px] text-zinc-500">راحة طويلة</span>
-                                <input type="number" id="customLongMin" value="15" min="1" max="60" onchange="updateCustomTimes()" class="w-full bg-zinc-950/80 border border-zinc-800 rounded p-1.5 text-center text-zinc-200">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 4K Animated Fading Picture Wallpapers -->
-                <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl backdrop-blur-md">
-                    <p class="text-xs font-bold text-zinc-200 mb-2.5" id="uiWallpaperTitle">🎨 صور خلفيات HD متغيرة وهادئة:</p>
-                    <div class="grid grid-cols-3 gap-2">
-                        <button onclick="setWallpaperTheme('dark')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-zinc-300 hover:border-zinc-500 transition">🌑 داكن أنيق</button>
-                        <button onclick="setWallpaperTheme('forest')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-emerald-300 hover:border-emerald-500 transition">🌲 غابة 4K</button>
-                        <button onclick="setWallpaperTheme('stars')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-purple-300 hover:border-purple-500 transition">🌌 فضاء ونجوم</button>
-                        <button onclick="setWallpaperTheme('ocean')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-blue-300 hover:border-blue-500 transition">🌊 أمواج المحيط</button>
-                        <button onclick="setWallpaperTheme('sunset')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-rose-300 hover:border-rose-500 transition">🌅 غروب الشمس</button>
-                        <button onclick="setWallpaperTheme('zen')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-amber-300 hover:border-amber-500 transition">🧘 طبيعة زين</button>
-                    </div>
-                </div>
-
-                <!-- Expanded Focus Sounds -->
-                <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl backdrop-blur-md">
-                    <p class="text-xs font-bold text-zinc-200 mb-2.5" id="uiAudioTitle">🎧 أصوات الطبيعة وموسيقى التركيز الحقيقية:</p>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="toggleAudio('rain')" id="audioRainBtn" class="bg-zinc-950 border border-zinc-800 py-2.5 px-3 rounded-lg text-xs text-zinc-300 flex items-center justify-between hover:border-zinc-600 transition">
-                            <span>⛈️ مطر ورعد مهدئ</span>
-                            <span id="rainStatus" class="w-2 h-2 rounded-full bg-zinc-700"></span>
-                        </button>
-                        <button onclick="toggleAudio('birds')" id="audioBirdsBtn" class="bg-zinc-950 border border-zinc-800 py-2.5 px-3 rounded-lg text-xs text-zinc-300 flex items-center justify-between hover:border-zinc-600 transition">
-                            <span>🐦 طيور الغابة</span>
-                            <span id="birdsStatus" class="w-2 h-2 rounded-full bg-zinc-700"></span>
-                        </button>
-                        <button onclick="toggleAudio('waves')" id="audioWavesBtn" class="bg-zinc-950 border border-zinc-800 py-2.5 px-3 rounded-lg text-xs text-zinc-300 flex items-center justify-between hover:border-zinc-600 transition">
-                            <span>🌊 أمواج المحيط</span>
-                            <span id="wavesStatus" class="w-2 h-2 rounded-full bg-zinc-700"></span>
-                        </button>
-                        <button onclick="toggleAudio('fireplace')" id="audioFireplaceBtn" class="bg-zinc-950 border border-zinc-800 py-2.5 px-3 rounded-lg text-xs text-zinc-300 flex items-center justify-between hover:border-zinc-600 transition">
-                            <span>🔥 مدفأة دافئة</span>
-                            <span id="fireplaceStatus" class="w-2 h-2 rounded-full bg-zinc-700"></span>
-                        </button>
-                        <button onclick="toggleAudio('night')" id="audioNightBtn" class="bg-zinc-950 border border-zinc-800 py-2.5 px-3 rounded-lg text-xs text-zinc-300 flex items-center justify-between hover:border-zinc-600 transition">
-                            <span>🌙 أصوات الليل والصرار</span>
-                            <span id="nightStatus" class="w-2 h-2 rounded-full bg-zinc-700"></span>
-                        </button>
-                        <button onclick="toggleAudio('lofi')" id="audioLofiBtn" class="bg-zinc-950 border border-zinc-800 py-2.5 px-3 rounded-lg text-xs text-zinc-300 flex items-center justify-between hover:border-zinc-600 transition">
-                            <span>☕ لوفي هيب هوب</span>
-                            <span id="lofiStatus" class="w-2 h-2 rounded-full bg-zinc-700"></span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Bottom Controls -->
-        <div id="bottomTaskControls" class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-zinc-950/95 backdrop-blur-md p-4 border-t border-zinc-800/80">
-            <div id="recordingStatus" class="hidden text-xs text-red-400 font-medium mb-2 flex items-center gap-2 recording-pulse">
-                <span class="w-2 h-2 rounded-full bg-red-500"></span> <span id="uiListening">سامعك... اتكلم وبص على الكلام بيتكتب</span>
-            </div>
-
-            <div class="flex items-center gap-2 mb-2">
-                <button id="micBtn" onclick="toggleVoiceInput()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 p-3.5 rounded-xl transition flex items-center justify-center">
-                    <span id="micIcon" class="text-lg">🎙️</span>
-                </button>
-                <textarea id="taskPromptInput" rows="2" placeholder="قول أو اكتب اللي عايز تعمله (مثال: عايز أروح الجيم الساعة ٩ وبعدين أذاكر)..." class="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-zinc-600 resize-none"></textarea>
-                <button onclick="processInputPrompt()" id="uiAddBtn" class="bg-white text-black font-semibold text-sm px-4 py-3 rounded-xl hover:bg-zinc-200 transition">
-                    إضافة
-                </button>
-            </div>
-
-            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 px-1">
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" id="photoToggle" class="rounded bg-zinc-900 border-zinc-800">
-                    <span id="uiPhotoLabel">مطلوب صورة إثبات</span>
-                </label>
-                <div class="flex items-center gap-1">
-                    <span id="uiTimeLabel">وقت الموعد:</span>
-                    <input type="time" id="startTimeInput" class="bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 text-[11px]">
-                    <span>-</span>
-                    <input type="time" id="endTimeInput" class="bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 text-[11px]">
-                </div>
-            </div>
-        </div>
+    <div class="flex bg-zinc-900/80 p-1 rounded-xl border border-zinc-800 mb-4 gap-1 backdrop-blur-md">
+      <button id="tabTasksBtn" onclick="switchTab('tasks')" class="flex-1 py-1.5 text-[11px] font-semibold rounded-lg" data-i18n="tabTasks">📋 المهام</button>
+      <button id="tabStatsBtn" onclick="switchTab('stats')" class="flex-1 py-1.5 text-[11px] font-semibold rounded-lg" data-i18n="tabStats">🟩 الالتزام</button>
+      <button id="tabFocusBtn" onclick="switchTab('focus')" class="flex-1 py-1.5 text-[11px] font-semibold rounded-lg" data-i18n="tabFocus">🍅 التركيز</button>
     </div>
 
-    <script>
-        // SUPABASE CONFIG
-        const SUPABASE_URL = 'https://oymblkoqdesskjbrvzec.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95bWJsa29xZGVzc2tqYnJ2emVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjgxNTIsImV4cCI6MjEwODEwNDE1Mn0.J_UcZW7sh9VKPRW0aJnFMoJEBiFBwJSMpSTuwFPuFkM';
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        let currentUser = null;
-        let currentLang = localStorage.getItem('app_lang') || 'ar';
-        let selectedDate = new Date().toISOString().split('T')[0];
-        let tasks = [];
-        let currentTab = 'tasks';
-        let recognition = null;
-        let isRecording = false;
-
-        // POMODORO TIMER STATE
-        let timerInterval = null;
-        let timerMode = 'work';
-        let timeLeft = 25 * 60;
-        let isTimerRunning = false;
-        let sessionsCompleted = parseInt(localStorage.getItem('pomodoro_sessions') || '0');
-
-        // AUDIO STREAMS (Direct reliable HTML5 audio links)
-        let activeAudio = null;
-        let activeAudioKey = null;
-        const soundUrls = {
-            rain: 'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
-            birds: 'https://actions.google.com/sounds/v1/environments/forest_morning.ogg',
-            waves: 'https://actions.google.com/sounds/v1/water/ocean_waves_into_cave.ogg',
-            fireplace: 'https://actions.google.com/sounds/v1/household/fireplace_crackling.ogg',
-            night: 'https://actions.google.com/sounds/v1/environments/crickets_chirping_night.ogg',
-            lofi: 'https://stream.zeno.fm/f3wvbbqmdg8uv'
-        };
-
-        // 4K HD WALLPAPERS (Multiple images per theme that auto cross-fade)
-        let currentWallpaperTheme = 'dark';
-        let wallpaperInterval = null;
-        let wallpaperIndex = 0;
-
-        const hdWallpaperSets = {
-            dark: [],
-            forest: [
-                'https://images.unsplash.com/photo-1511497584788-876761c11969?q=80&w=2000&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=2000&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1473448912268-2022ce9509d8?q=80&w=2000&auto=format&fit=crop'
-            ],
-            stars: [
-                'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?q=80&w=2000&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=2000&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2000&auto=format&fit=crop'
-            ],
-            ocean: [
-                'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=2000&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1518837695005-2083093ee35b?q=80&w=2000&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1498855926480-d98e83099315?q=80&w=2000&auto=format&fit=crop'
-            ],
-            sunset: [
-                'https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?q=80&w=2000&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=2000&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=2000&auto=format&fit=crop'
-            ],
-            zen: [
-                'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?q=80&w=2000&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1545243424-0ce743321e11?q=80&w=2000&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=2000&auto=format&fit=crop'
-            ]
-        };
-
-        document.getElementById('datePicker').value = selectedDate;
-        document.getElementById('sessionCount').textContent = sessionsCompleted;
-
-        // AUTH CHECKS
-        async function checkAuth() {
-            const { data: { user } } = await _supabase.auth.getUser();
-            if (user) {
-                currentUser = user;
-                document.getElementById('authScreen').classList.add('hidden');
-                document.getElementById('appScreen').classList.remove('hidden');
-                applyLanguageUI();
-                await fetchTasks();
-            } else {
-                document.getElementById('authScreen').classList.remove('hidden');
-                document.getElementById('appScreen').classList.add('hidden');
-            }
-        }
-
-        async function handleLogin() {
-            const email = document.getElementById('authEmail').value.trim();
-            const password = document.getElementById('authPassword').value.trim();
-            if (!email || !password) return alert('أدخل البريد وكلمة السر');
-
-            const { error } = await _supabase.auth.signInWithPassword({ email, password });
-            if (error) alert(error.message);
-            else checkAuth();
-        }
-
-        async function handleSignUp() {
-            const email = document.getElementById('authEmail').value.trim();
-            const password = document.getElementById('authPassword').value.trim();
-            if (!email || !password) return alert('أدخل البريد وكلمة السر');
-
-            const { error } = await _supabase.auth.signUp({ email, password });
-            if (error) alert(error.message);
-            else alert('تم إنشاء الحساب! يمكنك الآن تسجيل الدخول.');
-        }
-
-        async function handleSignOut() {
-            await _supabase.auth.signOut();
-            location.reload();
-        }
-
-        async function fetchTasks() {
-            const { data, error } = await _supabase.from('tasks').select('*');
-            if (!error) {
-                tasks = data || [];
-                render();
-            }
-        }
-
-        async function saveTaskToDb(newTask) {
-            const { data, error } = await _supabase.from('tasks').insert([{
-                user_id: currentUser.id,
-                title: newTask.title,
-                date: newTask.date,
-                start_time: newTask.startTime,
-                end_time: newTask.endTime,
-                completed: false,
-                needs_photo: newTask.needsPhoto,
-                photo_url: null
-            }]).select();
-
-            if (!error && data) {
-                tasks.push(data[0]);
-                render();
-            }
-        }
-
-        async function updateTaskInDb(id, updates) {
-            const { error } = await _supabase.from('tasks').update(updates).eq('id', id);
-            if (!error) {
-                const idx = tasks.findIndex(t => t.id === id);
-                if (idx !== -1) Object.assign(tasks[idx], updates);
-                render();
-            }
-        }
-
-        async function deleteTaskFromDb(id) {
-            const { error } = await _supabase.from('tasks').delete().eq('id', id);
-            if (!error) {
-                tasks = tasks.filter(t => t.id !== id);
-                render();
-            }
-        }
-
-        // TAB SWITCHING
-        function switchTab(tab) {
-            currentTab = tab;
-            const viewTasks = document.getElementById('viewTasks');
-            const viewStats = document.getElementById('viewStats');
-            const viewFocus = document.getElementById('viewFocus');
-            const bottomBar = document.getElementById('bottomTaskControls');
-            
-            const tabTasksBtn = document.getElementById('tabTasksBtn');
-            const tabStatsBtn = document.getElementById('tabStatsBtn');
-            const tabFocusBtn = document.getElementById('tabFocusBtn');
-
-            viewTasks.classList.add('hidden');
-            viewStats.classList.add('hidden');
-            viewFocus.classList.add('hidden');
-            tabTasksBtn.className = "flex-1 py-1.5 text-[11px] font-semibold rounded-lg text-zinc-400 hover:text-white transition";
-            tabStatsBtn.className = "flex-1 py-1.5 text-[11px] font-semibold rounded-lg text-zinc-400 hover:text-white transition";
-            tabFocusBtn.className = "flex-1 py-1.5 text-[11px] font-semibold rounded-lg text-zinc-400 hover:text-white transition";
-
-            if (tab === 'tasks') {
-                viewTasks.classList.remove('hidden');
-                tabTasksBtn.className = "flex-1 py-1.5 text-[11px] font-semibold rounded-lg bg-zinc-800 text-white transition";
-                bottomBar.classList.remove('hidden');
-            } else if (tab === 'stats') {
-                viewStats.classList.remove('hidden');
-                tabStatsBtn.className = "flex-1 py-1.5 text-[11px] font-semibold rounded-lg bg-zinc-800 text-white transition";
-                bottomBar.classList.add('hidden');
-                renderHeatmap();
-            } else if (tab === 'focus') {
-                viewFocus.classList.remove('hidden');
-                tabFocusBtn.className = "flex-1 py-1.5 text-[11px] font-semibold rounded-lg bg-zinc-800 text-white transition";
-                bottomBar.classList.add('hidden');
-            }
-        }
-
-        // TIMER LOGIC
-        function setTimerMode(mode) {
-            timerMode = mode;
-            clearInterval(timerInterval);
-            isTimerRunning = false;
-            document.getElementById('timerToggleBtn').textContent = currentLang === 'ar' ? 'بدء' : 'Start';
-
-            const workMin = parseInt(document.getElementById('customWorkMin').value) || 25;
-            const shortMin = parseInt(document.getElementById('customShortMin').value) || 5;
-            const longMin = parseInt(document.getElementById('customLongMin').value) || 15;
-
-            if (mode === 'work') {
-                timeLeft = workMin * 60;
-                document.getElementById('modeWorkBtn').className = "px-3 py-1 text-xs font-bold rounded-lg bg-red-600 text-white transition";
-                document.getElementById('modeShortBtn').className = "px-3 py-1 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-400 transition";
-                document.getElementById('modeLongBtn').className = "px-3 py-1 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-400 transition";
-            } else if (mode === 'shortBreak') {
-                timeLeft = shortMin * 60;
-                document.getElementById('modeWorkBtn').className = "px-3 py-1 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-400 transition";
-                document.getElementById('modeShortBtn').className = "px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600 text-white transition";
-                document.getElementById('modeLongBtn').className = "px-3 py-1 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-400 transition";
-            } else if (mode === 'longBreak') {
-                timeLeft = longMin * 60;
-                document.getElementById('modeWorkBtn').className = "px-3 py-1 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-400 transition";
-                document.getElementById('modeShortBtn').className = "px-3 py-1 text-xs font-semibold rounded-lg bg-zinc-800 text-zinc-400 transition";
-                document.getElementById('modeLongBtn').className = "px-3 py-1 text-xs font-bold rounded-lg bg-blue-600 text-white transition";
-            }
-            updateTimerDisplay();
-        }
-
-        function updateCustomTimes() {
-            if (!isTimerRunning) setTimerMode(timerMode);
-        }
-
-        function toggleTimer() {
-            if (isTimerRunning) {
-                clearInterval(timerInterval);
-                isTimerRunning = false;
-                document.getElementById('timerToggleBtn').textContent = currentLang === 'ar' ? 'استئناف' : 'Resume';
-            } else {
-                isTimerRunning = true;
-                document.getElementById('timerToggleBtn').textContent = currentLang === 'ar' ? 'إيقاف مؤقت' : 'Pause';
-                timerInterval = setInterval(() => {
-                    if (timeLeft > 0) {
-                        timeLeft--;
-                        updateTimerDisplay();
-                    } else {
-                        clearInterval(timerInterval);
-                        isTimerRunning = false;
-                        document.getElementById('timerToggleBtn').textContent = currentLang === 'ar' ? 'بدء' : 'Start';
-                        alert(currentLang === 'ar' ? 'انتهت الجلسة! احسنت صنعاً 🎯' : 'Session complete! Well done 🎯');
-                        if (timerMode === 'work') {
-                            sessionsCompleted++;
-                            localStorage.setItem('pomodoro_sessions', sessionsCompleted);
-                            document.getElementById('sessionCount').textContent = sessionsCompleted;
-                        }
-                    }
-                }, 1000);
-            }
-        }
-
-        function resetTimer() {
-            clearInterval(timerInterval);
-            isTimerRunning = false;
-            document.getElementById('timerToggleBtn').textContent = currentLang === 'ar' ? 'بدء' : 'Start';
-            setTimerMode(timerMode);
-        }
-
-        function updateTimerDisplay() {
-            const minutes = Math.floor(timeLeft / 60);
-            const seconds = timeLeft % 60;
-            document.getElementById('timerDisplay').textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        }
-
-        // FADING 4K WALLPAPERS CONTROLLER
-        function setWallpaperTheme(theme) {
-            currentWallpaperTheme = theme;
-            clearInterval(wallpaperInterval);
-            wallpaperIndex = 0;
-
-            const body = document.getElementById('appBody');
-            const images = hdWallpaperSets[theme];
-
-            if (!images || images.length === 0) {
-                body.style.backgroundImage = 'none';
-                body.style.backgroundColor = '#09090b';
-                return;
-            }
-
-            body.style.backgroundImage = `url("${images[0]}")`;
-
-            // Auto-fade pictures every 10 seconds
-            wallpaperInterval = setInterval(() => {
-                wallpaperIndex = (wallpaperIndex + 1) % images.length;
-                body.style.backgroundImage = `url("${images[wallpaperIndex]}")`;
-            }, 10000);
-        }
-
-        // AUDIO TOGGLES
-        function toggleAudio(key) {
-            const allKeys = ['rain', 'birds', 'waves', 'fireplace', 'night', 'lofi'];
-            
-            if (activeAudioKey === key) {
-                activeAudio.pause();
-                activeAudio = null;
-                activeAudioKey = null;
-                document.getElementById(key + 'Status').className = 'w-2 h-2 rounded-full bg-zinc-700';
-            } else {
-                if (activeAudio) activeAudio.pause();
-                allKeys.forEach(k => {
-                    const el = document.getElementById(k + 'Status');
-                    if (el) el.className = 'w-2 h-2 rounded-full bg-zinc-700';
-                });
-
-                activeAudio = new Audio(soundUrls[key]);
-                activeAudio.loop = true;
-                activeAudio.play().catch(e => console.log(e));
-                activeAudioKey = key;
-                document.getElementById(key + 'Status').className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
-            }
-        }
-
-        // LANGUAGE & TRANSLATIONS
-        function toggleLanguage() {
-            currentLang = currentLang === 'ar' ? 'en' : 'ar';
-            localStorage.setItem('app_lang', currentLang);
-            applyLanguageUI();
-            render();
-        }
-
-        function applyLanguageUI() {
-            const htmlTag = document.documentElement;
-            if (currentLang === 'ar') {
-                htmlTag.setAttribute('dir', 'rtl');
-                htmlTag.setAttribute('lang', 'ar');
-                document.getElementById('uiTitle').textContent = 'مهامي اليومية';
-                document.getElementById('uiTabTasks').textContent = '📋 المهام';
-                document.getElementById('uiTabStats').textContent = '🟩 الالتزام';
-                document.getElementById('uiTabFocus').textContent = '🍅 التركيز';
-                document.getElementById('uiAiLabel').textContent = 'المساعد الذكي';
-                document.getElementById('uiMissedText').textContent = '⚠️ مهام مخلصلتهاش من أيام قبل كده:';
-                document.getElementById('uiHeatmapTitle').textContent = 'خريطة الالتزام والإنجاز (آخر 30 يوم)';
-                document.getElementById('uiLess').textContent = 'أقل إنجاز';
-                document.getElementById('uiMore').textContent = 'أعلى إنجاز';
-                document.getElementById('uiTotalDone').textContent = 'إجمالي المهام المكتملة';
-                document.getElementById('uiStreak').textContent = 'سلسلة الالتزام المتواصل';
-                document.getElementById('uiListening').textContent = 'سامعك... اتكلم وبص على الكلام بيتكتب';
-                document.getElementById('taskPromptInput').placeholder = 'قول أو اكتب اللي عايز تعمله (مثال: عايز أروح الجيم الساعة ٩ وبعدين أذاكر)...';
-                document.getElementById('uiAddBtn').textContent = 'إضافة';
-                document.getElementById('uiPhotoLabel').textContent = 'مطلوب صورة إثبات';
-                document.getElementById('uiTimeLabel').textContent = 'وقت الموعد:';
-                document.getElementById('uiWorkMode').textContent = 'وقت العمل';
-                document.getElementById('uiShortBreak').textContent = 'راحة قصيرة';
-                document.getElementById('uiLongBreak').textContent = 'راحة طويلة';
-                document.getElementById('uiStartBtn').textContent = isTimerRunning ? 'إيقاف مؤقت' : 'بدء';
-                document.getElementById('uiResetBtn').textContent = 'إعادة ضبط';
-                document.getElementById('uiSessionsCompleted').textContent = 'الجلسات المكتملة اليوم:';
-                document.getElementById('uiCustomizeTitle').textContent = '⚙️ تخصيص الأوقات (بالدقائق):';
-                document.getElementById('uiCustomWork').textContent = 'عمل';
-                document.getElementById('uiCustomShort').textContent = 'راحة قصيرة';
-                document.getElementById('uiCustomLong').textContent = 'راحة طويلة';
-                document.getElementById('uiWallpaperTitle').textContent = '🎨 صور خلفيات HD متغيرة وهادئة:';
-                document.getElementById('uiAudioTitle').textContent = '🎧 أصوات الطبيعة وموسيقى التركيز الحقيقية:';
-                document.getElementById('langBtn').textContent = 'English';
-            } else {
-                htmlTag.setAttribute('dir', 'ltr');
-                htmlTag.setAttribute('lang', 'en');
-                document.getElementById('uiTitle').textContent = 'Daily Tasks';
-                document.getElementById('uiTabTasks').textContent = '📋 Tasks';
-                document.getElementById('uiTabStats').textContent = '🟩 Heatmap';
-                document.getElementById('uiTabFocus').textContent = '🍅 Focus';
-                document.getElementById('uiAiLabel').textContent = 'AI ASSISTANT';
-                document.getElementById('uiMissedText').textContent = '⚠️ Unfinished tasks from previous days:';
-                document.getElementById('uiHeatmapTitle').textContent = 'Commitment Heatmap (Last 30 Days)';
-                document.getElementById('uiLess').textContent = 'Less';
-                document.getElementById('uiMore').textContent = 'More';
-                document.getElementById('uiTotalDone').textContent = 'Total Tasks Done';
-                document.getElementById('uiStreak').textContent = 'Current Day Streak';
-                document.getElementById('uiListening').textContent = 'Listening... Speak your tasks clearly';
-                document.getElementById('taskPromptInput').placeholder = 'Say or type what you want to do (e.g. workout at 9am, then study math)...';
-                document.getElementById('uiAddBtn').textContent = 'Add';
-                document.getElementById('uiPhotoLabel').textContent = 'Require photo proof';
-                document.getElementById('uiTimeLabel').textContent = 'Time window:';
-                document.getElementById('uiWorkMode').textContent = 'Work Time';
-                document.getElementById('uiShortBreak').textContent = 'Short Break';
-                document.getElementById('uiLongBreak').textContent = 'Long Break';
-                document.getElementById('uiStartBtn').textContent = isTimerRunning ? 'Pause' : 'Start';
-                document.getElementById('uiResetBtn').textContent = 'Reset';
-                document.getElementById('uiSessionsCompleted').textContent = 'Completed Sessions Today:';
-                document.getElementById('uiCustomizeTitle').textContent = '⚙️ Customize Durations (mins):';
-                document.getElementById('uiCustomWork').textContent = 'Work';
-                document.getElementById('uiCustomShort').textContent = 'Short Break';
-                document.getElementById('uiCustomLong').textContent = 'Long Break';
-                document.getElementById('uiWallpaperTitle').textContent = '🎨 Fading 4K Picture Wallpapers:';
-                document.getElementById('uiAudioTitle').textContent = '🎧 Focus Music & Real Nature Sounds:';
-                document.getElementById('langBtn').textContent = 'عربي';
-            }
-        }
-
-        function changeDate() {
-            selectedDate = document.getElementById('datePicker').value;
-            render();
-        }
-
-        // VOICE INPUT LOGIC
-        function toggleVoiceInput() {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) return alert('Voice recognition not supported in this browser.');
-
-            const micBtn = document.getElementById('micBtn');
-            const statusLabel = document.getElementById('recordingStatus');
-
-            if (isRecording) {
-                recognition.stop();
-                return;
-            }
-
-            recognition = new SpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            recognition.lang = currentLang === 'ar' ? 'ar-EG' : 'en-US';
-
-            recognition.onstart = () => {
-                isRecording = true;
-                micBtn.classList.remove('bg-zinc-800');
-                micBtn.classList.add('bg-red-600');
-                statusLabel.classList.remove('hidden');
-            };
-
-            recognition.onresult = (event) => {
-                let currentTranscript = '';
-                for (let i = 0; i < event.results.length; i++) {
-                    currentTranscript += event.results[i][0].transcript;
-                }
-                document.getElementById('taskPromptInput').value = currentTranscript;
-            };
-
-            recognition.onerror = () => stopRecordingUI();
-            recognition.onend = () => stopRecordingUI();
-            recognition.start();
-        }
-
-        function stopRecordingUI() {
-            isRecording = false;
-            document.getElementById('micBtn').className = 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 p-3.5 rounded-xl transition flex items-center justify-center';
-            document.getElementById('recordingStatus').classList.add('hidden');
-        }
-
-        function processInputPrompt() {
-            const text = document.getElementById('taskPromptInput').value.trim();
-            if (!text) return;
-
-            const transitionRegex = /,|\n|\b(?:وبعدين|وبعد كده|وكمان|وبعديها|عايز كمان|وراي كمان|ثم|and then|then|also|after that)\b/gi;
-            const rawTasks = text.split(transitionRegex);
-            const photoRequired = document.getElementById('photoToggle').checked;
-            const startTime = document.getElementById('startTimeInput').value || null;
-            const endTime = document.getElementById('endTimeInput').value || null;
-
-            rawTasks.forEach(rawItem => {
-                let cleanTitle = rawItem.trim().replace(/^(عايز أعمل|عايز|محتاج أعمل|محتاج|وراي|I want to|I need to)\s+/gi, '');
-                if (cleanTitle.length > 1) {
-                    saveTaskToDb({
-                        title: cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1),
-                        date: selectedDate,
-                        startTime: startTime,
-                        endTime: endTime,
-                        needsPhoto: photoRequired
-                    });
-                }
-            });
-
-            document.getElementById('taskPromptInput').value = '';
-            document.getElementById('photoToggle').checked = false;
-            document.getElementById('startTimeInput').value = '';
-            document.getElementById('endTimeInput').value = '';
-        }
-
-        function toggleTask(id) {
-            const task = tasks.find(t => t.id === id);
-            if (!task) return;
-
-            if (task.needs_photo && !task.completed && !task.photo_url) {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*';
-                input.onchange = (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                            updateTaskInDb(id, { completed: true, photo_url: reader.result });
-                        };
-                        reader.readAsDataURL(file);
-                    }
-                };
-                input.click();
-            } else {
-                updateTaskInDb(id, { completed: !task.completed });
-            }
-        }
-
-        function rescheduleTask(id, targetDate) {
-            updateTaskInDb(id, { date: targetDate });
-        }
-
-        function dropTask(id) {
-            deleteTaskFromDb(id);
-        }
-
-        // HEATMAP LOGIC
-        function renderHeatmap() {
-            const grid = document.getElementById('heatmapGrid');
-            grid.innerHTML = '';
-            let totalDone = 0;
-            const todayObj = new Date();
-
-            for (let i = 29; i >= 0; i--) {
-                const d = new Date();
-                d.setDate(todayObj.getDate() - i);
-                const dateStr = d.toISOString().split('T')[0];
-
-                const dayTasks = tasks.filter(t => t.date === dateStr);
-                const doneCount = dayTasks.filter(t => t.completed).length;
-                totalDone += doneCount;
-
-                let colorClass = 'bg-zinc-800';
-                if (doneCount === 1) colorClass = 'bg-emerald-900';
-                else if (doneCount === 2) colorClass = 'bg-emerald-700';
-                else if (doneCount === 3) colorClass = 'bg-emerald-500';
-                else if (doneCount >= 4) colorClass = 'bg-emerald-400';
-
-                const cell = document.createElement('div');
-                cell.className = `heatmap-cell ${colorClass}`;
-                cell.title = `${dateStr}: ${doneCount} tasks completed`;
-                grid.appendChild(cell);
-            }
-
-            document.getElementById('statCompletedCount').textContent = totalDone;
-            document.getElementById('statStreak').textContent = `${calculateStreak()} ${currentLang === 'ar' ? 'أيام' : 'days'}`;
-        }
-
-        function calculateStreak() {
-            let streak = 0;
-            const todayObj = new Date();
-            for (let i = 0; i < 30; i++) {
-                const d = new Date();
-                d.setDate(todayObj.getDate() - i);
-                const dateStr = d.toISOString().split('T')[0];
-                const dayTasks = tasks.filter(t => t.date === dateStr);
-                if (dayTasks.length > 0 && dayTasks.every(t => t.completed)) {
-                    streak++;
-                } else if (i > 0) break;
-            }
-            return streak;
-        }
-
-        function render() {
-            const list = document.getElementById('taskList');
-            list.innerHTML = '';
-
-            const todayTasks = tasks.filter(t => t.date === selectedDate);
-            const today = new Date().toISOString().split('T')[0];
-
-            const missedSection = document.getElementById('missedTasksSection');
-            const missedList = document.getElementById('missedList');
-            missedList.innerHTML = '';
-
-            if (selectedDate === today) {
-                const missed = tasks.filter(t => t.date < today && !t.completed);
-                if (missed.length > 0) {
-                    missedSection.classList.remove('hidden');
-                    missed.forEach(task => {
-                        const div = document.createElement('div');
-                        div.className = 'flex justify-between items-center text-xs bg-zinc-900/90 p-2.5 rounded-lg border border-zinc-800 backdrop-blur-md';
-                        div.innerHTML = `
-                            <span class="text-zinc-300 truncate max-w-[140px]">${task.title}</span>
-                            <div class="flex gap-1.5">
-                                <button onclick="rescheduleTask('${task.id}', '${today}')" class="bg-blue-600 text-white px-2.5 py-1 rounded">${currentLang === 'ar' ? 'النهارده' : 'Today'}</button>
-                                <button onclick="dropTask('${task.id}')" class="bg-red-900/60 text-red-300 px-2.5 py-1 rounded">${currentLang === 'ar' ? 'مسح' : 'Drop'}</button>
-                            </div>
-                        `;
-                        missedList.appendChild(div);
-                    });
-                } else missedSection.classList.add('hidden');
-            } else missedSection.classList.add('hidden');
-
-            if (todayTasks.length === 0) {
-                list.innerHTML = `<p class="text-xs text-zinc-600 text-center py-8">${currentLang === 'ar' ? 'مفيش مهام متسجلة لليوم ده.' : 'No tasks scheduled for this day.'}</p>`;
-            } else {
-                todayTasks.forEach(task => {
-                    const div = document.createElement('div');
-                    div.className = `flex items-center justify-between p-3.5 rounded-xl border backdrop-blur-md ${task.completed ? 'bg-zinc-950/80 border-zinc-900 text-zinc-600' : 'bg-zinc-900/80 border-zinc-800 text-zinc-200'}`;
-                    
-                    let timeBadge = '';
-                    if (task.start_time || task.end_time) {
-                        timeBadge = `<span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">⏰ ${task.start_time || ''} ${task.end_time ? '- ' + task.end_time : ''}</span>`;
-                    }
-
-                    div.innerHTML = `
-                        <div class="flex items-center gap-3">
-                            <button onclick="toggleTask('${task.id}')" class="text-lg">
-                                ${task.completed ? '✅' : '⭕'}
-                            </button>
-                            <div>
-                                <p class="text-sm ${task.completed ? 'line-through' : ''}">${task.title}</p>
-                                ${timeBadge}
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            ${task.needs_photo ? `<span class="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">${task.photo_url ? (currentLang === 'ar' ? '📷 موثق' : '📷 Verified') : (currentLang === 'ar' ? '📷 مطلوب صورة' : '📷 Photo Needed')}</span>` : ''}
-                            <button onclick="dropTask('${task.id}')" class="text-xs text-zinc-600 hover:text-red-400 px-1">✕</button>
-                        </div>
-                    `;
-                    list.appendChild(div);
-                });
-            }
-
-            const aiGreeting = document.getElementById('aiGreeting');
-            const doneCount = todayTasks.filter(t => t.completed).length;
-            if (todayTasks.length === 0) {
-                aiGreeting.textContent = currentLang === 'ar' ? "اليوم ده فاضي. دوس على المايك أو اكتب كل اللي عايز تخلصه النهارده!" : "Your schedule is empty for this day.";
-            } else if (doneCount === todayTasks.length) {
-                aiGreeting.textContent = currentLang === 'ar' ? `🎉 عاش جدًا! خلصت كل الـ ${todayTasks.length} مهام بتوع النهارده.` : `🎉 Fantastic! You completed all ${todayTasks.length} tasks scheduled for today.`;
-            } else {
-                aiGreeting.textContent = currentLang === 'ar' ? `خلصت ${doneCount} من أصل ${todayTasks.length} مهام النهارده. كمل يا بطل!` : `You have completed ${doneCount} out of ${todayTasks.length} tasks for this day. Keep going!`;
-            }
-
-            if (currentTab === 'stats') renderHeatmap();
-        }
-
-        checkAuth();
-    </script>
+    <!-- TASKS -->
+    <div id="viewTasks">
+      <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl mb-4 backdrop-blur-md">
+        <div class="flex items-center gap-2 text-xs font-semibold text-purple-400 mb-1"><span>✦</span><span data-i18n="ai">المساعد الذكي</span></div>
+        <p id="aiGreeting" class="text-sm text-zinc-300">...</p>
+      </div>
+      <div id="missedTasksSection" class="hidden bg-amber-950/40 border border-amber-800/50 p-3 rounded-xl mb-4 backdrop-blur-md">
+        <p class="text-xs text-amber-400 font-semibold mb-2" data-i18n="missed">⚠️</p>
+        <div id="missedList" class="space-y-2"></div>
+      </div>
+      <div id="taskList" class="space-y-2"></div>
+    </div>
+
+    <!-- STATS -->
+    <div id="viewStats" class="hidden space-y-4">
+      <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl backdrop-blur-md">
+        <h2 class="text-sm font-bold text-zinc-200 mb-3" data-i18n="heatTitle"></h2>
+        <div id="heatmapGrid" class="flex flex-wrap gap-1.5 justify-center p-2 bg-zinc-950/80 rounded-lg border border-zinc-800/60"></div>
+        <div class="flex justify-between text-[10px] text-zinc-500 mt-3 px-1">
+          <span data-i18n="less"></span>
+          <div class="flex gap-1 items-center">
+            <div class="heatmap-cell bg-zinc-800"></div><div class="heatmap-cell bg-emerald-900"></div><div class="heatmap-cell bg-emerald-700"></div><div class="heatmap-cell bg-emerald-500"></div><div class="heatmap-cell bg-emerald-400"></div>
+          </div>
+          <span data-i18n="more"></span>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl text-center backdrop-blur-md">
+          <p class="text-2xl font-extrabold text-emerald-400" id="statCompletedCount">0</p>
+          <p class="text-xs text-zinc-500 mt-1" data-i18n="totalDone"></p>
+        </div>
+        <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl text-center backdrop-blur-md">
+          <p class="text-2xl font-extrabold text-purple-400" id="statStreak">0</p>
+          <p class="text-xs text-zinc-500 mt-1" data-i18n="streak"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOCUS -->
+    <div id="viewFocus" class="hidden space-y-4">
+      <div class="bg-zinc-900/80 border border-zinc-800 p-5 rounded-2xl text-center shadow-2xl backdrop-blur-md">
+        <div class="flex justify-center gap-2 mb-6">
+          <button onclick="setTimerMode('work')" id="modeWorkBtn">🍅 <span data-i18n="workMode"></span></button>
+          <button onclick="setTimerMode('shortBreak')" id="modeShortBtn">☕ <span data-i18n="shortBreak"></span></button>
+          <button onclick="setTimerMode('longBreak')" id="modeLongBtn">🌴 <span data-i18n="longBreak"></span></button>
+        </div>
+        <div class="my-6"><span id="timerDisplay" class="text-6xl font-extrabold tracking-wider font-mono drop-shadow-md">25:00</span></div>
+        <div class="flex justify-center gap-3 mb-6">
+          <button onclick="toggleTimer()" class="bg-white text-black font-bold px-6 py-2.5 rounded-xl text-sm shadow hover:bg-zinc-200 transition"><span id="uiStartBtn">بدء</span></button>
+          <button onclick="resetTimer()" class="bg-zinc-800/80 text-zinc-300 px-4 py-2.5 rounded-xl text-sm border border-zinc-700 hover:bg-zinc-700 transition" data-i18n="reset"></button>
+        </div>
+        <p class="text-xs text-zinc-400 mb-4"><span data-i18n="sessions"></span> <strong id="sessionCount" class="text-emerald-400 font-bold">0</strong></p>
+        <div class="border-t border-zinc-800/80 pt-4 mt-4">
+          <p class="text-xs font-semibold text-zinc-400 mb-2" data-i18n="custom"></p>
+          <div class="grid grid-cols-3 gap-2 text-xs">
+            <div><span class="text-[10px] text-zinc-500" data-i18n="cWork"></span><input type="number" id="customWorkMin" value="25" min="1" max="120" onchange="updateCustomTimes()" class="w-full bg-zinc-950/80 border border-zinc-800 rounded p-1.5 text-center text-zinc-200"></div>
+            <div><span class="text-[10px] text-zinc-500" data-i18n="shortBreak"></span><input type="number" id="customShortMin" value="5" min="1" max="30" onchange="updateCustomTimes()" class="w-full bg-zinc-950/80 border border-zinc-800 rounded p-1.5 text-center text-zinc-200"></div>
+            <div><span class="text-[10px] text-zinc-500" data-i18n="longBreak"></span><input type="number" id="customLongMin" value="15" min="1" max="60" onchange="updateCustomTimes()" class="w-full bg-zinc-950/80 border border-zinc-800 rounded p-1.5 text-center text-zinc-200"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl backdrop-blur-md">
+        <button onclick="enterFS()" class="w-full mb-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white font-bold text-sm py-3 rounded-xl transition">⛶ <span data-i18n="fsBtn"></span></button>
+        <p class="text-xs font-bold text-zinc-200 mb-2.5" data-i18n="wallTitle"></p>
+        <div id="wallGrid" class="grid grid-cols-3 gap-2"></div>
+      </div>
+
+      <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl backdrop-blur-md">
+        <p class="text-xs font-bold text-zinc-200 mb-2.5" data-i18n="audioTitle"></p>
+        <div id="audioGrid" class="grid grid-cols-2 gap-2"></div>
+        <div class="flex items-center gap-2 mt-3 text-xs text-zinc-400">
+          <span>🔈</span><input type="range" id="volume" min="0" max="100" value="60" oninput="setVolume(this.value)" class="flex-1 accent-purple-500"><span>🔊</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom task bar -->
+  <div id="bottomTaskControls" class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-zinc-950/95 backdrop-blur-md p-4 border-t border-zinc-800/80">
+    <div id="recordingStatus" class="hidden text-xs text-red-400 font-medium mb-2 flex items-center gap-2 recording-pulse">
+      <span class="w-2 h-2 rounded-full bg-red-500"></span><span data-i18n="listening"></span>
+    </div>
+    <div class="flex items-center gap-2 mb-2">
+      <button id="micBtn" onclick="toggleVoiceInput()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 p-3.5 rounded-xl transition flex items-center justify-center"><span class="text-lg">🎙️</span></button>
+      <textarea id="taskPromptInput" rows="2" data-i18n-ph="ph" class="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-zinc-600 resize-none"></textarea>
+      <button onclick="processInputPrompt()" data-i18n="add" class="bg-white text-black font-semibold text-sm px-4 py-3 rounded-xl hover:bg-zinc-200 transition"></button>
+    </div>
+    <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 px-1">
+      <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="photoToggle" class="rounded bg-zinc-900 border-zinc-800"><span data-i18n="photo"></span></label>
+      <div class="flex items-center gap-1">
+        <span data-i18n="time"></span>
+        <input type="time" id="startTimeInput" class="bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 text-[11px]">
+        <span>-</span>
+        <input type="time" id="endTimeInput" class="bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300 text-[11px]">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// Local date (fixes the UTC bug of toISOString around midnight)
+const localDate = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+// ===== SUPABASE =====
+const SUPABASE_URL = 'https://oymblkoqdesskjbrvzec.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95bWJsa29xZGVzc2tqYnJ2emVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjgxNTIsImV4cCI6MjEwODEwNDE1Mn0.J_UcZW7sh9VKPRW0aJnFMoJEBiFBwJSMpSTuwFPuFkM';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentUser = null, tasks = [], currentTab = 'tasks', recognition = null, isRecording = false;
+let currentLang = localStorage.getItem('app_lang') || 'ar';
+let selectedDate = localDate();
+
+// ===== TRANSLATIONS =====
+const T = {
+  ar: { title:'مهامي اليومية', logout:'خروج', tabTasks:'📋 المهام', tabStats:'🟩 الالتزام', tabFocus:'🍅 التركيز', ai:'المساعد الذكي',
+    missed:'⚠️ مهام مخلصلتهاش من أيام قبل كده:', heatTitle:'خريطة الالتزام والإنجاز (آخر 30 يوم)', less:'أقل إنجاز', more:'أعلى إنجاز',
+    totalDone:'إجمالي المهام المكتملة', streak:'سلسلة الالتزام المتواصل', listening:'سامعك... اتكلم وبص على الكلام بيتكتب',
+    ph:'قول أو اكتب اللي عايز تعمله (مثال: عايز أروح الجيم الساعة ٩ وبعدين أذاكر)...', add:'إضافة', photo:'مطلوب صورة إثبات', time:'وقت الموعد:',
+    workMode:'وقت العمل', shortBreak:'راحة قصيرة', longBreak:'راحة طويلة', reset:'إعادة ضبط', sessions:'الجلسات المكتملة اليوم:',
+    custom:'⚙️ تخصيص الأوقات (بالدقائق):', cWork:'عمل', wallTitle:'🎨 خلفيات HD متغيرة وهادئة:', audioTitle:'🎧 أصوات الطبيعة وموسيقى التركيز:',
+    fsBtn:'وضع ملء الشاشة للدراسة', exitFs:'خروج', start:'بدء', pause:'إيقاف مؤقت', resume:'استئناف', days:'أيام', today:'النهارده', drop:'مسح',
+    noTasks:'مفيش مهام متسجلة لليوم ده.', verified:'📷 موثق', needPhoto:'📷 مطلوب صورة', done:'انتهت الجلسة! احسنت صنعاً 🎯',
+    empty:'اليوم ده فاضي. دوس على المايك أو اكتب كل اللي عايز تخلصه النهارده!', allDone:n=>`🎉 عاش جدًا! خلصت كل الـ ${n} مهام بتوع النهارده.`, prog:(d,n)=>`خلصت ${d} من أصل ${n} مهام النهارده. كمل يا بطل!`,
+    themes:{dark:'🌑 داكن',forest:'🌲 غابة',stars:'🌌 نجوم',ocean:'🌊 محيط',sunset:'🌅 غروب',zen:'🧘 زين',mountains:'🏔️ جبال',aurora:'🌠 شفق',city:'🌃 مدينة ليلًا'},
+    sounds:{rain:'⛈️ مطر',birds:'🐦 طيور',waves:'🌊 أمواج',fireplace:'🔥 مدفأة',night:'🌙 ليل وصرار',lofi:'☕ لوفي'} },
+  en: { title:'Daily Tasks', logout:'Logout', tabTasks:'📋 Tasks', tabStats:'🟩 Heatmap', tabFocus:'🍅 Focus', ai:'AI ASSISTANT',
+    missed:'⚠️ Unfinished tasks from previous days:', heatTitle:'Commitment Heatmap (Last 30 Days)', less:'Less', more:'More',
+    totalDone:'Total Tasks Done', streak:'Current Day Streak', listening:'Listening... Speak your tasks clearly',
+    ph:'Say or type what you want to do (e.g. workout at 9am, then study math)...', add:'Add', photo:'Require photo proof', time:'Time window:',
+    workMode:'Work Time', shortBreak:'Short Break', longBreak:'Long Break', reset:'Reset', sessions:'Completed Sessions Today:',
+    custom:'⚙️ Customize Durations (mins):', cWork:'Work', wallTitle:'🎨 Calm HD Wallpapers (auto-fading):', audioTitle:'🎧 Nature Sounds & Focus Music:',
+    fsBtn:'Fullscreen Study Mode', exitFs:'Exit', start:'Start', pause:'Pause', resume:'Resume', days:'days', today:'Today', drop:'Drop',
+    noTasks:'No tasks scheduled for this day.', verified:'📷 Verified', needPhoto:'📷 Photo Needed', done:'Session complete! Well done 🎯',
+    empty:'Your schedule is empty for this day.', allDone:n=>`🎉 Fantastic! You completed all ${n} tasks scheduled for today.`, prog:(d,n)=>`You have completed ${d} out of ${n} tasks for this day. Keep going!`,
+    themes:{dark:'🌑 Dark',forest:'🌲 Forest',stars:'🌌 Stars',ocean:'🌊 Ocean',sunset:'🌅 Sunset',zen:'🧘 Zen',mountains:'🏔️ Mountains',aurora:'🌠 Aurora',city:'🌃 City Night'},
+    sounds:{rain:'⛈️ Rain',birds:'🐦 Birds',waves:'🌊 Waves',fireplace:'🔥 Fireplace',night:'🌙 Night Crickets',lofi:'☕ Lo-fi'} }
+};
+const tr = k => T[currentLang][k];
+
+function applyLanguageUI() {
+  const h = document.documentElement;
+  h.dir = currentLang === 'ar' ? 'rtl' : 'ltr'; h.lang = currentLang;
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = tr(el.dataset.i18n));
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => el.placeholder = tr(el.dataset.i18nPh));
+  $('langBtn').textContent = currentLang === 'ar' ? 'English' : 'عربي';
+  setBtn(btnKey); buildWallGrid(); buildAudioGrid(); quoteIdx = -1;
+}
+function toggleLanguage() { currentLang = currentLang === 'ar' ? 'en' : 'ar'; localStorage.setItem('app_lang', currentLang); applyLanguageUI(); render(); }
+
+// ===== AUTH =====
+async function checkAuth() {
+  const { data: { user } } = await _supabase.auth.getUser();
+  $('authScreen').classList.toggle('hidden', !!user);
+  $('appScreen').classList.toggle('hidden', !user);
+  if (user) { currentUser = user; applyLanguageUI(); switchTab('tasks'); await fetchTasks(); }
+}
+async function handleLogin() {
+  const email = $('authEmail').value.trim(), password = $('authPassword').value.trim();
+  if (!email || !password) return alert('أدخل البريد وكلمة السر');
+  const { error } = await _supabase.auth.signInWithPassword({ email, password });
+  error ? alert(error.message) : checkAuth();
+}
+async function handleSignUp() {
+  const email = $('authEmail').value.trim(), password = $('authPassword').value.trim();
+  if (!email || !password) return alert('أدخل البريد وكلمة السر');
+  const { error } = await _supabase.auth.signUp({ email, password });
+  alert(error ? error.message : 'تم إنشاء الحساب! يمكنك الآن تسجيل الدخول.');
+}
+async function handleSignOut() { await _supabase.auth.signOut(); location.reload(); }
+
+// ===== TASKS (DB) =====
+async function fetchTasks() { const { data, error } = await _supabase.from('tasks').select('*'); if (!error) { tasks = data || []; render(); } }
+async function saveTaskToDb(t) {
+  const { data, error } = await _supabase.from('tasks').insert([{ user_id: currentUser.id, title: t.title, date: t.date, start_time: t.startTime, end_time: t.endTime, completed: false, needs_photo: t.needsPhoto, photo_url: null }]).select();
+  if (!error && data) { tasks.push(data[0]); render(); }
+}
+async function updateTaskInDb(id, updates) {
+  const { error } = await _supabase.from('tasks').update(updates).eq('id', id);
+  if (!error) { const t = tasks.find(t => t.id === id); if (t) Object.assign(t, updates); render(); }
+}
+async function deleteTaskFromDb(id) { const { error } = await _supabase.from('tasks').delete().eq('id', id); if (!error) { tasks = tasks.filter(t => t.id !== id); render(); } }
+
+// ===== TABS =====
+function switchTab(tab) {
+  currentTab = tab;
+  const map = { tasks: ['viewTasks','tabTasksBtn'], stats: ['viewStats','tabStatsBtn'], focus: ['viewFocus','tabFocusBtn'] };
+  Object.entries(map).forEach(([k, [v, b]]) => {
+    $(v).classList.toggle('hidden', k !== tab);
+    $(b).className = 'flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition ' + (k === tab ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white');
+  });
+  $('bottomTaskControls').classList.toggle('hidden', tab !== 'tasks');
+  if (tab === 'stats') renderHeatmap();
+}
+
+// ===== POMODORO =====
+let timerInterval = null, timerMode = 'work', timeLeft = 25 * 60, isTimerRunning = false, endAt = 0, btnKey = 'start';
+const sessKey = () => 'pomo_' + localDate();
+let sessionsCompleted = parseInt(localStorage.getItem(sessKey()) || '0');
+const MODES = { work: ['modeWorkBtn','bg-red-600'], shortBreak: ['modeShortBtn','bg-emerald-600'], longBreak: ['modeLongBtn','bg-blue-600'] };
+
+function setBtn(k) { btnKey = k; $('uiStartBtn').textContent = tr(k); $('fsToggleBtn').textContent = tr(k); }
+function durations() { return { work: (+$('customWorkMin').value || 25) * 60, shortBreak: (+$('customShortMin').value || 5) * 60, longBreak: (+$('customLongMin').value || 15) * 60 }; }
+function setTimerMode(mode) {
+  timerMode = mode; clearInterval(timerInterval); isTimerRunning = false; setBtn('start');
+  timeLeft = durations()[mode];
+  Object.entries(MODES).forEach(([m, [id, c]]) => $(id).className = 'px-3 py-1 text-xs rounded-lg transition ' + (m === mode ? 'font-bold text-white ' + c : 'font-semibold bg-zinc-800 text-zinc-400'));
+  updateTimerDisplay();
+}
+function updateCustomTimes() { if (!isTimerRunning) setTimerMode(timerMode); }
+function toggleTimer() {
+  if (isTimerRunning) { clearInterval(timerInterval); isTimerRunning = false; setBtn('resume'); return; }
+  isTimerRunning = true; setBtn('pause'); endAt = Date.now() + timeLeft * 1000;
+  timerInterval = setInterval(() => {
+    timeLeft = Math.max(0, Math.ceil((endAt - Date.now()) / 1000)); updateTimerDisplay();
+    if (timeLeft === 0) {
+      clearInterval(timerInterval); isTimerRunning = false; setBtn('start');
+      if (timerMode === 'work') { sessionsCompleted++; localStorage.setItem(sessKey(), sessionsCompleted); $('sessionCount').textContent = sessionsCompleted; }
+      setTimeout(() => alert(tr('done')), 50);
+    }
+  }, 500);
+}
+function resetTimer() { setTimerMode(timerMode); }
+function updateTimerDisplay() {
+  const s = `${String(Math.floor(timeLeft / 60)).padStart(2,'0')}:${String(timeLeft % 60).padStart(2,'0')}`;
+  $('timerDisplay').textContent = s; $('fsTimer').textContent = s;
+}
+
+// ===== WALLPAPERS (preload + cross-fade; broken images are skipped) =====
+const U = id => `https://images.unsplash.com/photo-${id}?q=80&w=2000&auto=format&fit=crop`;
+const WALLS = {
+  dark: [],
+  forest: ['1511497584788-876761c11969','1448375240586-882707db888b','1473448912268-2022ce9509d8','1441974231531-c6227db76b6e','1425913397330-cf8af2ff40a1','1476231682828-37e571bc172f'].map(U),
+  stars: ['1519681393784-d120267933ba','1419242902214-272b3f66ee7a','1464802686167-b939a6910659','1506703719100-a0f3a48c0f86','1534447677768-be436bb09401','1462331940025-496dfbe4e8e5'].map(U),
+  ocean: ['1507525428034-b723cf961d3e','1505118380757-91f5f5632de0','1518837695005-2083093ee35b','1439405326854-014607f694d7','1500375592092-40eb2168fd21','1468413253725-0d5181091126'].map(U),
+  sunset: ['1495616811223-4d98c6e9c869','1472214103451-9374bd1c798e','1470252649378-9c29740c9fa8','1506744038136-46273834b3fb','1500964757637-c85e8a162699','1419833173245-f59e1b93f9ee'].map(U),
+  zen: ['1545243424-0ce743321e11','1528164344705-47542687000d','1493976040374-85c8e12f0c0e','1518241353330-0f7941c2d9b5','1490730141103-6cac27aaab94','1469474968028-56623f02e42e'].map(U),
+  mountains: ['1464822759023-fed622ff2c3b','1506905925346-21bda4d32df4','1501785888041-af3ef285b470','1486870591958-9b9d0d1dda99','1454496522488-7a8e488e8606','1519904981063-b0cf448d479e'].map(U),
+  aurora: ['1531366936337-7c912a4589a7','1483347756197-71ef80e95f73','1579033461380-adb47c3eb938'].map(U),
+  city: ['1519501025264-65ba15a82390','1514565131-fce0801e5785','1477959858617-67f85cf4f1df','1480714378408-67cf0d13bc1b'].map(U)
+};
+function mkLayers(el) { el.innerHTML = '<div class="bg-layer"></div><div class="bg-layer"></div>'; return { els: [...el.children], i: 0 }; }
+const pageBg = mkLayers($('pageBg')), fsBg = mkLayers($('fsBg'));
+function showBg(L, url) {
+  const n = L.els[1 - L.i], o = L.els[L.i];
+  n.style.backgroundImage = url ? `url("${url}")` : 'none';
+  n.style.opacity = url ? 1 : 0; o.style.opacity = 0; L.i = 1 - L.i;
+}
+const preload = url => new Promise(r => { const im = new Image(); im.onload = () => r(url); im.onerror = () => r(null); im.src = url; });
+let wallTheme = localStorage.getItem('wall_theme') || 'dark', wallIdx = -1, wallTimer = null, wallToken = 0;
+
+async function nextWall() {
+  const set = WALLS[wallTheme], token = wallToken;
+  if (!set || !set.length) { showBg(pageBg, null); showBg(fsBg, null); return; }
+  for (let t = 0; t < set.length; t++) {
+    wallIdx = (wallIdx + 1) % set.length;
+    const ok = await preload(set[wallIdx]);
+    if (token !== wallToken) return;
+    if (ok) { showBg(pageBg, ok); showBg(fsBg, ok); return; }
+  }
+}
+function setWallpaperTheme(theme) {
+  wallTheme = theme; localStorage.setItem('wall_theme', theme);
+  clearInterval(wallTimer); wallToken++;
+  wallIdx = Math.floor(Math.random() * (WALLS[theme].length || 1)) - 1;
+  nextWall(); wallTimer = setInterval(nextWall, 12000);
+  buildWallGrid();
+}
+function buildWallGrid() {
+  $('wallGrid').innerHTML = Object.keys(WALLS).map(k =>
+    `<button onclick="setWallpaperTheme('${k}')" class="bg-zinc-950 border ${k === wallTheme ? 'border-purple-500 text-white' : 'border-zinc-800 text-zinc-300'} p-2 rounded-lg text-[11px] hover:border-zinc-500 transition">${tr('themes')[k]}</button>`).join('');
+}
+
+// ===== FULLSCREEN STUDY MODE + QUOTES =====
+const QUOTES = [
+  ['The future depends on what you do today.','المستقبل يعتمد على ما تفعله اليوم.','Mahatma Gandhi','المهاتما غاندي'],
+  ['It always seems impossible until it\'s done.','يبدو الأمر مستحيلًا دائمًا حتى يتم إنجازه.','Nelson Mandela','نيلسون مانديلا'],
+  ['Success is the sum of small efforts, repeated day in and day out.','النجاح هو مجموع جهود صغيرة تتكرر يومًا بعد يوم.','Robert Collier','روبرت كولير'],
+  ['The only way to do great work is to love what you do.','الطريقة الوحيدة للقيام بعمل رائع هي أن تحب ما تفعله.','Steve Jobs','ستيف جوبز'],
+  ['It does not matter how slowly you go as long as you do not stop.','لا يهم أن تسير ببطء ما دمت لا تتوقف.','Confucius','كونفوشيوس'],
+  ['Believe you can and you\'re halfway there.','آمن أنك تستطيع، وستكون قد قطعت نصف الطريق.','Theodore Roosevelt','ثيودور روزفلت'],
+  ['Genius is one percent inspiration and ninety-nine percent perspiration.','العبقرية واحد بالمئة إلهام وتسعة وتسعون بالمئة عرق.','Thomas Edison','توماس إديسون'],
+  ['Education is the most powerful weapon which you can use to change the world.','التعليم هو أقوى سلاح يمكنك استخدامه لتغيير العالم.','Nelson Mandela','نيلسون مانديلا'],
+  ['Don\'t watch the clock; do what it does. Keep going.','لا تراقب الساعة؛ افعل مثلها. استمر في المسير.','Sam Levenson','سام ليفنسون'],
+  ['The secret of getting ahead is getting started.','سر التقدم هو أن تبدأ.','Mark Twain','مارك توين'],
+  ['An investment in knowledge pays the best interest.','الاستثمار في المعرفة يدرّ أفضل الفوائد.','Benjamin Franklin','بنجامين فرانكلين'],
+  ['Nothing in life is to be feared, it is only to be understood.','لا شيء في الحياة يستحق الخوف، بل الفهم فقط.','Marie Curie','ماري كوري'],
+  ['Imagination is more important than knowledge.','الخيال أهم من المعرفة.','Albert Einstein','ألبرت أينشتاين'],
+  ['Whether you think you can, or you think you can\'t, you\'re right.','سواء ظننت أنك تستطيع أو لا تستطيع، فأنت محق.','Henry Ford','هنري فورد'],
+  ['You miss 100% of the shots you don\'t take.','تخسر كل التسديدات التي لا تحاول تنفيذها.','Wayne Gretzky','واين جريتسكي'],
+  ['He who strives, finds; he who sows, reaps.','من جدّ وجد، ومن زرع حصد.','Arabic proverb','مثل عربي']
+];
+let quoteIdx = -1, quoteTimer = null, wakeLock = null;
+function nextQuote() {
+  let i; do { i = Math.floor(Math.random() * QUOTES.length); } while (i === quoteIdx && QUOTES.length > 1);
+  quoteIdx = i; const q = QUOTES[i], ar = currentLang === 'ar', box = $('quoteBox');
+  box.style.opacity = 0;
+  setTimeout(() => { $('quoteText').textContent = `“${ar ? q[1] : q[0]}”`; $('quoteAuthor').textContent = '— ' + (ar ? q[3] : q[2]); box.style.opacity = 1; }, 800);
+}
+async function enterFS() {
+  const o = $('fsOverlay'); o.classList.remove('hidden');
+  try { if (o.requestFullscreen) await o.requestFullscreen(); else if (o.webkitRequestFullscreen) o.webkitRequestFullscreen(); } catch (e) {}
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch (e) {}
+  if (wallTheme === 'dark') setWallpaperTheme('forest');   // black screen is dull; pick a scene on first use
+  nextQuote(); clearInterval(quoteTimer); quoteTimer = setInterval(nextQuote, 12000);
+}
+function exitFS() {
+  clearInterval(quoteTimer); $('fsOverlay').classList.add('hidden');
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  wakeLock?.release?.(); wakeLock = null;
+}
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && !$('fsOverlay').classList.contains('hidden')) exitFS(); });
+
+// ===== AUDIO =====
+// rain + lofi = real streams. The rest are generated live with the Web Audio API,
+// so they can't break from dead links / hotlink blocking.
+const SOUNDS = { rain: 'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg', lofi: 'https://stream.zeno.fm/f3wvbbqmdg8uv' };
+const SOUND_KEYS = ['rain','birds','waves','fireplace','night','lofi'];
+let fileAudio = null, activeKey = null, actx = null, synth = null, volume = 0.6;
+
+const getCtx = () => { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); return actx; };
+function mkNoise(type) {
+  const c = getCtx(), n = c.sampleRate * 3, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); let l = 0;
+  for (let i = 0; i < n; i++) { const w = Math.random() * 2 - 1; if (type === 'brown') { l = (l + 0.02 * w) / 1.02; d[i] = l * 3.5; } else d[i] = w; }
+  return b;
+}
+function noise(type, ftype, freq, gain) {
+  const c = getCtx(), s = c.createBufferSource(); s.buffer = mkNoise(type); s.loop = true;
+  const f = c.createBiquadFilter(); f.type = ftype; f.frequency.value = freq;
+  const g = c.createGain(); g.gain.value = gain; s.connect(f); f.connect(g); g.connect(synth.master); s.start(); synth.nodes.push(s); return g;
+}
+function lfo(freq, depth, param) {
+  const c = getCtx(), o = c.createOscillator(), g = c.createGain(); o.frequency.value = freq; g.gain.value = depth;
+  o.connect(g); g.connect(param); o.start(); synth.nodes.push(o);
+}
+function loopTimer(fn, min, max) { const me = synth; const t = () => { if (synth !== me) return; fn(); setTimeout(t, min + Math.random() * (max - min)); }; t(); }
+function pop(big) {
+  const c = getCtx(), s = c.createBufferSource(); synth.nb = synth.nb || mkNoise('white'); s.buffer = synth.nb;
+  const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 800 + Math.random() * 3500; f.Q.value = 1;
+  const g = c.createGain(), t = c.currentTime, v = big ? 0.9 : 0.15 + Math.random() * 0.35;
+  g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.04 + Math.random() * 0.1);
+  s.connect(f); f.connect(g); g.connect(synth.master); s.start(t, Math.random() * 2, 0.15);
+}
+function chirpPhrase() {
+  const c = getCtx(), n = 2 + Math.floor(Math.random() * 5), base = 2200 + Math.random() * 2500, now = c.currentTime;
+  for (let k = 0; k < n; k++) {
+    const t0 = now + k * 0.13, o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(base, t0); o.frequency.exponentialRampToValueAtTime(base * (1.2 + Math.random() * 0.5), t0 + 0.08);
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.12, t0 + 0.02); g.gain.linearRampToValueAtTime(0, t0 + 0.1);
+    o.connect(g); g.connect(synth.master); o.start(t0); o.stop(t0 + 0.12);
+  }
+}
+function cricket(freq) {
+  const c = getCtx(), o = c.createOscillator(), a = c.createGain(), b = c.createGain(), out = c.createGain();
+  o.type = 'sine'; o.frequency.value = freq; a.gain.value = 0.5; b.gain.value = 0.5; out.gain.value = 0.035;
+  lfo(11 + Math.random() * 3, 0.5, a.gain); lfo(0.5 + Math.random() * 0.6, 0.5, b.gain);
+  o.connect(a); a.connect(b); b.connect(out); out.connect(synth.master); o.start(); synth.nodes.push(o);
+}
+const RECIPES = {
+  fireplace() { noise('brown', 'lowpass', 450, 0.9); noise('white', 'highpass', 6000, 0.012); loopTimer(() => pop(Math.random() < 0.08), 40, 380); },
+  waves() { const a = noise('brown', 'lowpass', 900, 0.5); lfo(0.11, 0.35, a.gain); const b = noise('brown', 'lowpass', 600, 0.3); lfo(0.07, 0.25, b.gain); const f = noise('white', 'bandpass', 2500, 0.05); lfo(0.11, 0.04, f.gain); },
+  birds() { noise('brown', 'lowpass', 300, 0.25); loopTimer(chirpPhrase, 500, 2800); },
+  night() { noise('brown', 'lowpass', 250, 0.15); [4300, 4700, 5100].forEach(cricket); }
+};
+function stopAudio() {
+  if (fileAudio) { fileAudio.pause(); fileAudio.src = ''; fileAudio = null; }
+  if (synth) { synth.nodes.forEach(n => { try { n.stop(); } catch (e) {} }); try { synth.master.disconnect(); } catch (e) {} synth = null; }
+  activeKey = null;
+}
+function toggleAudio(key) {
+  const same = activeKey === key; stopAudio();
+  if (!same) {
+    activeKey = key;
+    if (SOUNDS[key]) {
+      fileAudio = new Audio(SOUNDS[key]); fileAudio.loop = true; fileAudio.volume = volume;
+      fileAudio.onerror = () => { if (activeKey === key) { stopAudio(); buildAudioGrid(); } };
+      fileAudio.play().catch(() => { stopAudio(); buildAudioGrid(); });
+    } else {
+      const c = getCtx(); synth = { nodes: [], master: c.createGain() }; synth.master.gain.value = volume * 0.8; synth.master.connect(c.destination); RECIPES[key]();
+    }
+  }
+  buildAudioGrid();
+}
+function setVolume(v) { volume = v / 100; if (fileAudio) fileAudio.volume = volume; if (synth) synth.master.gain.value = volume * 0.8; }
+function buildAudioGrid() {
+  $('audioGrid').innerHTML = SOUND_KEYS.map(k =>
+    `<button onclick="toggleAudio('${k}')" class="bg-zinc-950 border ${k === activeKey ? 'border-emerald-500' : 'border-zinc-800'} py-2.5 px-3 rounded-lg text-xs text-zinc-300 flex items-center justify-between hover:border-zinc-600 transition"><span>${tr('sounds')[k]}</span><span class="w-2 h-2 rounded-full ${k === activeKey ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-700'}"></span></button>`).join('');
+}
+
+// ===== VOICE =====
+function toggleVoiceInput() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return alert('Voice recognition not supported in this browser.');
+  if (isRecording) { recognition.stop(); return; }
+  recognition = new SR(); recognition.continuous = true; recognition.interimResults = true; recognition.lang = currentLang === 'ar' ? 'ar-EG' : 'en-US';
+  recognition.onstart = () => { isRecording = true; $('micBtn').classList.replace('bg-zinc-800', 'bg-red-600'); $('recordingStatus').classList.remove('hidden'); };
+  recognition.onresult = e => { let s = ''; for (let i = 0; i < e.results.length; i++) s += e.results[i][0].transcript; $('taskPromptInput').value = s; };
+  recognition.onerror = recognition.onend = stopRecordingUI;
+  recognition.start();
+}
+function stopRecordingUI() { isRecording = false; $('micBtn').className = 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 p-3.5 rounded-xl transition flex items-center justify-center'; $('recordingStatus').classList.add('hidden'); }
+
+function processInputPrompt() {
+  const text = $('taskPromptInput').value.trim(); if (!text) return;
+  const re = /,|،|\n|\b(?:وبعدين|وبعد كده|وكمان|وبعديها|عايز كمان|وراي كمان|ثم|and then|then|also|after that)\b/gi;
+  const photo = $('photoToggle').checked, st = $('startTimeInput').value || null, et = $('endTimeInput').value || null;
+  text.split(re).forEach(raw => {
+    const t = (raw || '').trim().replace(/^(عايز أعمل|عايز|محتاج أعمل|محتاج|وراي|I want to|I need to)\s+/gi, '');
+    if (t.length > 1) saveTaskToDb({ title: t.charAt(0).toUpperCase() + t.slice(1), date: selectedDate, startTime: st, endTime: et, needsPhoto: photo });
+  });
+  $('taskPromptInput').value = ''; $('photoToggle').checked = false; $('startTimeInput').value = ''; $('endTimeInput').value = '';
+}
+function toggleTask(id) {
+  const t = tasks.find(t => t.id === id); if (!t) return;
+  if (t.needs_photo && !t.completed && !t.photo_url) {
+    const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
+    input.onchange = e => { const f = e.target.files[0]; if (f) { const r = new FileReader(); r.onload = () => updateTaskInDb(id, { completed: true, photo_url: r.result }); r.readAsDataURL(f); } };
+    input.click();
+  } else updateTaskInDb(id, { completed: !t.completed });
+}
+const rescheduleTask = (id, d) => updateTaskInDb(id, { date: d });
+const dropTask = id => deleteTaskFromDb(id);
+function changeDate() { selectedDate = $('datePicker').value; render(); }
+
+// ===== HEATMAP =====
+function renderHeatmap() {
+  const grid = $('heatmapGrid'); grid.innerHTML = ''; let total = 0;
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i); const ds = localDate(d);
+    const n = tasks.filter(t => t.date === ds && t.completed).length; total += n;
+    const c = n === 0 ? 'bg-zinc-800' : n === 1 ? 'bg-emerald-900' : n === 2 ? 'bg-emerald-700' : n === 3 ? 'bg-emerald-500' : 'bg-emerald-400';
+    const cell = document.createElement('div'); cell.className = `heatmap-cell ${c}`; cell.title = `${ds}: ${n}`; grid.appendChild(cell);
+  }
+  $('statCompletedCount').textContent = total;
+  $('statStreak').textContent = `${calculateStreak()} ${tr('days')}`;
+}
+function calculateStreak() {
+  let s = 0;
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i); const dt = tasks.filter(t => t.date === localDate(d));
+    if (dt.length && dt.every(t => t.completed)) s++; else if (i > 0) break;
+  }
+  return s;
+}
+
+// ===== RENDER =====
+function render() {
+  const list = $('taskList'); list.innerHTML = '';
+  const dayTasks = tasks.filter(t => t.date === selectedDate), today = localDate();
+  const ms = $('missedTasksSection'), ml = $('missedList'); ml.innerHTML = '';
+  const missed = selectedDate === today ? tasks.filter(t => t.date < today && !t.completed) : [];
+  ms.classList.toggle('hidden', !missed.length);
+  missed.forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'flex justify-between items-center text-xs bg-zinc-900/90 p-2.5 rounded-lg border border-zinc-800 backdrop-blur-md';
+    div.innerHTML = `<span class="text-zinc-300 truncate max-w-[140px]">${esc(t.title)}</span><div class="flex gap-1.5"><button onclick="rescheduleTask('${esc(t.id)}','${today}')" class="bg-blue-600 text-white px-2.5 py-1 rounded">${tr('today')}</button><button onclick="dropTask('${esc(t.id)}')" class="bg-red-900/60 text-red-300 px-2.5 py-1 rounded">${tr('drop')}</button></div>`;
+    ml.appendChild(div);
+  });
+  if (!dayTasks.length) list.innerHTML = `<p class="text-xs text-zinc-600 text-center py-8">${tr('noTasks')}</p>`;
+  dayTasks.forEach(t => {
+    const div = document.createElement('div');
+    div.className = `flex items-center justify-between p-3.5 rounded-xl border backdrop-blur-md ${t.completed ? 'bg-zinc-950/80 border-zinc-900 text-zinc-600' : 'bg-zinc-900/80 border-zinc-800 text-zinc-200'}`;
+    const badge = (t.start_time || t.end_time) ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">⏰ ${esc(t.start_time || '')} ${t.end_time ? '- ' + esc(t.end_time) : ''}</span>` : '';
+    div.innerHTML = `<div class="flex items-center gap-3"><button onclick="toggleTask('${esc(t.id)}')" class="text-lg">${t.completed ? '✅' : '⭕'}</button><div><p class="text-sm ${t.completed ? 'line-through' : ''}">${esc(t.title)}</p>${badge}</div></div>
+      <div class="flex items-center gap-2">${t.needs_photo ? `<span class="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">${t.photo_url ? tr('verified') : tr('needPhoto')}</span>` : ''}<button onclick="dropTask('${esc(t.id)}')" class="text-xs text-zinc-600 hover:text-red-400 px-1">✕</button></div>`;
+    list.appendChild(div);
+  });
+  const done = dayTasks.filter(t => t.completed).length, g = $('aiGreeting');
+  g.textContent = !dayTasks.length ? tr('empty') : done === dayTasks.length ? tr('allDone')(dayTasks.length) : tr('prog')(done, dayTasks.length);
+  if (currentTab === 'stats') renderHeatmap();
+}
+
+// ===== INIT =====
+$('datePicker').value = selectedDate;
+$('sessionCount').textContent = sessionsCompleted;
+setTimerMode('work'); buildWallGrid(); buildAudioGrid();
+if (wallTheme !== 'dark') setWallpaperTheme(wallTheme);
+checkAuth();
+</script>
 </body>
 </html>
