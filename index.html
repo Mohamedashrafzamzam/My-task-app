@@ -416,8 +416,8 @@ function lfo(freq, depth, param) {
 function loopTimer(fn, min, max) { const me = synth; const t = () => { if (synth !== me) return; fn(); setTimeout(t, min + Math.random() * (max - min)); }; t(); }
 function pop(big) {
   const c = getCtx(), s = c.createBufferSource(); synth.nb = synth.nb || mkNoise('white'); s.buffer = synth.nb;
-  const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 800 + Math.random() * 3500; f.Q.value = 1;
-  const g = c.createGain(), t = c.currentTime, v = big ? 0.9 : 0.15 + Math.random() * 0.35;
+  const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 300 + Math.random() * 1500; f.Q.value = 0.7;
+  const g = c.createGain(), t = c.currentTime, v = big ? 0.5 : 0.08 + Math.random() * 0.2;
   g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.04 + Math.random() * 0.1);
   s.connect(f); f.connect(g); g.connect(synth.master); s.start(t, Math.random() * 2, 0.15);
 }
@@ -437,7 +437,7 @@ function cricket(freq) {
   o.connect(a); a.connect(b); b.connect(out); out.connect(synth.master); o.start(); synth.nodes.push(o);
 }
 const RECIPES = {
-  fireplace() { noise('brown', 'lowpass', 450, 0.9); noise('white', 'highpass', 6000, 0.012); loopTimer(() => pop(Math.random() < 0.08), 40, 380); },
+  fireplace() { const r = noise('brown', 'lowpass', 220, 0.45); lfo(0.3, 0.12, r.gain); loopTimer(() => { pop(Math.random() < 0.04); if (Math.random() < 0.3) setTimeout(() => pop(), 30 + Math.random() * 60); }, 150, 900); },
   waves() { const a = noise('brown', 'lowpass', 900, 0.5); lfo(0.11, 0.35, a.gain); const b = noise('brown', 'lowpass', 600, 0.3); lfo(0.07, 0.25, b.gain); const f = noise('white', 'bandpass', 2500, 0.05); lfo(0.11, 0.04, f.gain); },
   birds() { noise('brown', 'lowpass', 300, 0.25); loopTimer(chirpPhrase, 500, 2800); },
   night() { noise('brown', 'lowpass', 250, 0.15); [4300, 4700, 5100].forEach(cricket); }
