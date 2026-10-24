@@ -13,14 +13,11 @@
             background-color: #09090b; 
             color: #f4f4f5; 
             font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; 
-            transition: background 0.5s ease-in-out;
+            transition: background-image 1.5s ease-in-out, background-color 0.5s ease;
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
-        }
-        .bg-overlay {
-            background: rgba(9, 9, 11, 0.85);
-            backdrop-filter: blur(12px);
+            background-repeat: no-repeat;
         }
         .recording-pulse { animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
@@ -55,13 +52,13 @@
                     <button onclick="handleSignOut()" class="text-[10px] text-red-400 bg-red-950/40 px-2 py-1 rounded border border-red-900/50">خروج</button>
                 </div>
                 <div class="flex gap-2 items-center">
-                    <button onclick="toggleLanguage()" id="langBtn" class="bg-zinc-800 text-xs px-2.5 py-1.5 rounded-lg border border-zinc-700 text-purple-400 font-medium">English</button>
-                    <input type="date" id="datePicker" onchange="changeDate()" class="bg-zinc-800 text-xs text-zinc-200 px-2 py-1.5 rounded-lg border border-zinc-700 outline-none">
+                    <button onclick="toggleLanguage()" id="langBtn" class="bg-zinc-800/90 text-xs px-2.5 py-1.5 rounded-lg border border-zinc-700 text-purple-400 font-medium">English</button>
+                    <input type="date" id="datePicker" onchange="changeDate()" class="bg-zinc-800/90 text-xs text-zinc-200 px-2 py-1.5 rounded-lg border border-zinc-700 outline-none">
                 </div>
             </div>
 
             <!-- Navigation Tabs -->
-            <div class="flex bg-zinc-900/80 p-1 rounded-xl border border-zinc-800 mb-4 gap-1">
+            <div class="flex bg-zinc-900/80 p-1 rounded-xl border border-zinc-800 mb-4 gap-1 backdrop-blur-md">
                 <button id="tabTasksBtn" onclick="switchTab('tasks')" class="flex-1 py-1.5 text-[11px] font-semibold rounded-lg bg-zinc-800 text-white transition">
                     <span id="uiTabTasks">📋 المهام</span>
                 </button>
@@ -75,14 +72,14 @@
 
             <!-- TAB 1: DAILY TASKS VIEW -->
             <div id="viewTasks">
-                <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl mb-4">
+                <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl mb-4 backdrop-blur-md">
                     <div class="flex items-center gap-2 text-xs font-semibold text-purple-400 mb-1">
                         <span>✦</span> <span id="uiAiLabel">المساعد الذكي</span>
                     </div>
                     <p id="aiGreeting" class="text-sm text-zinc-300">جاري تحميل مهامك...</p>
                 </div>
 
-                <div id="missedTasksSection" class="hidden bg-amber-950/40 border border-amber-800/50 p-3 rounded-xl mb-4">
+                <div id="missedTasksSection" class="hidden bg-amber-950/40 border border-amber-800/50 p-3 rounded-xl mb-4 backdrop-blur-md">
                     <p class="text-xs text-amber-400 font-semibold mb-2" id="uiMissedText">⚠️ مهام مخلصلتهاش من أيام قبل كده:</p>
                     <div id="missedList" class="space-y-2"></div>
                 </div>
@@ -92,7 +89,7 @@
 
             <!-- TAB 2: COMMITMENT HEATMAP & STATS VIEW -->
             <div id="viewStats" class="hidden space-y-4">
-                <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl">
+                <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl backdrop-blur-md">
                     <h2 class="text-sm font-bold text-zinc-200 mb-3" id="uiHeatmapTitle">خريطة الالتزام والإنجاز (آخر 30 يوم)</h2>
                     <div id="heatmapGrid" class="flex flex-wrap gap-1.5 justify-center p-2 bg-zinc-950/80 rounded-lg border border-zinc-800/60"></div>
                     <div class="flex justify-between text-[10px] text-zinc-500 mt-3 px-1">
@@ -109,11 +106,11 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl text-center">
+                    <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl text-center backdrop-blur-md">
                         <p class="text-2xl font-extrabold text-emerald-400" id="statCompletedCount">0</p>
                         <p class="text-xs text-zinc-500 mt-1" id="uiTotalDone">إجمالي المهام المكتملة</p>
                     </div>
-                    <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl text-center">
+                    <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl text-center backdrop-blur-md">
                         <p class="text-2xl font-extrabold text-purple-400" id="statStreak">0 أيام</p>
                         <p class="text-xs text-zinc-500 mt-1" id="uiStreak">سلسلة الالتزام المتواصل</p>
                     </div>
@@ -122,7 +119,7 @@
 
             <!-- TAB 3: FOCUS TIMER, VISUAL WALLPAPERS & SOUNDS -->
             <div id="viewFocus" class="hidden space-y-4">
-                <div id="focusCard" class="bg-zinc-900/80 border border-zinc-800 p-5 rounded-2xl text-center shadow-2xl transition-all duration-500">
+                <div id="focusCard" class="bg-zinc-900/80 border border-zinc-800 p-5 rounded-2xl text-center shadow-2xl backdrop-blur-md transition-all duration-500">
                     <!-- Mode Selectors -->
                     <div class="flex justify-center gap-2 mb-6">
                         <button onclick="setTimerMode('work')" id="modeWorkBtn" class="px-3 py-1 text-xs font-bold rounded-lg bg-red-600 text-white transition">🍅 <span id="uiWorkMode">وقت العمل</span></button>
@@ -132,13 +129,13 @@
 
                     <!-- Timer Display -->
                     <div class="my-6">
-                        <span id="timerDisplay" class="text-6xl font-extrabold tracking-wider font-mono">25:00</span>
+                        <span id="timerDisplay" class="text-6xl font-extrabold tracking-wider font-mono drop-shadow-md">25:00</span>
                     </div>
 
                     <!-- Timer Controls -->
                     <div class="flex justify-center gap-3 mb-6">
                         <button onclick="toggleTimer()" id="timerToggleBtn" class="bg-white text-black font-bold px-6 py-2.5 rounded-xl text-sm shadow hover:bg-zinc-200 transition"><span id="uiStartBtn">بدء</span></button>
-                        <button onclick="resetTimer()" class="bg-zinc-800 text-zinc-300 px-4 py-2.5 rounded-xl text-sm border border-zinc-700 hover:bg-zinc-700 transition"><span id="uiResetBtn">إعادة ضبط</span></button>
+                        <button onclick="resetTimer()" class="bg-zinc-800/80 text-zinc-300 px-4 py-2.5 rounded-xl text-sm border border-zinc-700 hover:bg-zinc-700 transition"><span id="uiResetBtn">إعادة ضبط</span></button>
                     </div>
 
                     <!-- Session Counter -->
@@ -150,52 +147,60 @@
                         <div class="grid grid-cols-3 gap-2 text-xs">
                             <div>
                                 <span id="uiCustomWork" class="text-[10px] text-zinc-500">عمل</span>
-                                <input type="number" id="customWorkMin" value="25" min="1" max="120" onchange="updateCustomTimes()" class="w-full bg-zinc-950 border border-zinc-800 rounded p-1.5 text-center text-zinc-200">
+                                <input type="number" id="customWorkMin" value="25" min="1" max="120" onchange="updateCustomTimes()" class="w-full bg-zinc-950/80 border border-zinc-800 rounded p-1.5 text-center text-zinc-200">
                             </div>
                             <div>
                                 <span id="uiCustomShort" class="text-[10px] text-zinc-500">راحة قصيرة</span>
-                                <input type="number" id="customShortMin" value="5" min="1" max="30" onchange="updateCustomTimes()" class="w-full bg-zinc-950 border border-zinc-800 rounded p-1.5 text-center text-zinc-200">
+                                <input type="number" id="customShortMin" value="5" min="1" max="30" onchange="updateCustomTimes()" class="w-full bg-zinc-950/80 border border-zinc-800 rounded p-1.5 text-center text-zinc-200">
                             </div>
                             <div>
                                 <span id="uiCustomLong" class="text-[10px] text-zinc-500">راحة طويلة</span>
-                                <input type="number" id="customLongMin" value="15" min="1" max="60" onchange="updateCustomTimes()" class="w-full bg-zinc-950 border border-zinc-800 rounded p-1.5 text-center text-zinc-200">
+                                <input type="number" id="customLongMin" value="15" min="1" max="60" onchange="updateCustomTimes()" class="w-full bg-zinc-950/80 border border-zinc-800 rounded p-1.5 text-center text-zinc-200">
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Visual Picture Wallpapers -->
-                <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl">
-                    <p class="text-xs font-bold text-zinc-200 mb-2.5" id="uiWallpaperTitle">🎨 صور خلفيات مهدئة للتركيز:</p>
+                <!-- 4K Animated Fading Picture Wallpapers -->
+                <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl backdrop-blur-md">
+                    <p class="text-xs font-bold text-zinc-200 mb-2.5" id="uiWallpaperTitle">🎨 صور خلفيات HD متغيرة وهادئة:</p>
                     <div class="grid grid-cols-3 gap-2">
-                        <button onclick="setWallpaper('dark')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-zinc-300 hover:border-zinc-500 transition">🌑 داكن أنيق</button>
-                        <button onclick="setWallpaper('forest')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-emerald-300 hover:border-emerald-500 transition">🌲 غابة طبيعية</button>
-                        <button onclick="setWallpaper('stars')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-purple-300 hover:border-purple-500 transition">🌌 ليل ونجوم</button>
-                        <button onclick="setWallpaper('ocean')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-blue-300 hover:border-blue-500 transition">🌊 شاطئ هادئ</button>
-                        <button onclick="setWallpaper('sunset')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-rose-300 hover:border-rose-500 transition">🌅 غروب الشمس</button>
-                        <button onclick="setWallpaper('zen')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-amber-300 hover:border-amber-500 transition">🧘 حدائق زين</button>
+                        <button onclick="setWallpaperTheme('dark')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-zinc-300 hover:border-zinc-500 transition">🌑 داكن أنيق</button>
+                        <button onclick="setWallpaperTheme('forest')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-emerald-300 hover:border-emerald-500 transition">🌲 غابة 4K</button>
+                        <button onclick="setWallpaperTheme('stars')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-purple-300 hover:border-purple-500 transition">🌌 فضاء ونجوم</button>
+                        <button onclick="setWallpaperTheme('ocean')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-blue-300 hover:border-blue-500 transition">🌊 أمواج المحيط</button>
+                        <button onclick="setWallpaperTheme('sunset')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-rose-300 hover:border-rose-500 transition">🌅 غروب الشمس</button>
+                        <button onclick="setWallpaperTheme('zen')" class="bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-xs text-amber-300 hover:border-amber-500 transition">🧘 طبيعة زين</button>
                     </div>
                 </div>
 
-                <!-- Focus Music & Real Nature Streams -->
-                <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl">
+                <!-- Expanded Focus Sounds -->
+                <div class="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl backdrop-blur-md">
                     <p class="text-xs font-bold text-zinc-200 mb-2.5" id="uiAudioTitle">🎧 أصوات الطبيعة وموسيقى التركيز الحقيقية:</p>
                     <div class="grid grid-cols-2 gap-2">
                         <button onclick="toggleAudio('rain')" id="audioRainBtn" class="bg-zinc-950 border border-zinc-800 py-2.5 px-3 rounded-lg text-xs text-zinc-300 flex items-center justify-between hover:border-zinc-600 transition">
-                            <span>🌧️ مطر ورعد هادئ</span>
+                            <span>⛈️ مطر ورعد مهدئ</span>
                             <span id="rainStatus" class="w-2 h-2 rounded-full bg-zinc-700"></span>
                         </button>
                         <button onclick="toggleAudio('birds')" id="audioBirdsBtn" class="bg-zinc-950 border border-zinc-800 py-2.5 px-3 rounded-lg text-xs text-zinc-300 flex items-center justify-between hover:border-zinc-600 transition">
                             <span>🐦 طيور الغابة</span>
                             <span id="birdsStatus" class="w-2 h-2 rounded-full bg-zinc-700"></span>
                         </button>
-                        <button onclick="toggleAudio('lofi')" id="audioLofiBtn" class="bg-zinc-950 border border-zinc-800 py-2.5 px-3 rounded-lg text-xs text-zinc-300 flex items-center justify-between hover:border-zinc-600 transition">
-                            <span>☕ لوفي هيب هوب</span>
-                            <span id="lofiStatus" class="w-2 h-2 rounded-full bg-zinc-700"></span>
-                        </button>
                         <button onclick="toggleAudio('waves')" id="audioWavesBtn" class="bg-zinc-950 border border-zinc-800 py-2.5 px-3 rounded-lg text-xs text-zinc-300 flex items-center justify-between hover:border-zinc-600 transition">
                             <span>🌊 أمواج المحيط</span>
                             <span id="wavesStatus" class="w-2 h-2 rounded-full bg-zinc-700"></span>
+                        </button>
+                        <button onclick="toggleAudio('fireplace')" id="audioFireplaceBtn" class="bg-zinc-950 border border-zinc-800 py-2.5 px-3 rounded-lg text-xs text-zinc-300 flex items-center justify-between hover:border-zinc-600 transition">
+                            <span>🔥 مدفأة دافئة</span>
+                            <span id="fireplaceStatus" class="w-2 h-2 rounded-full bg-zinc-700"></span>
+                        </button>
+                        <button onclick="toggleAudio('night')" id="audioNightBtn" class="bg-zinc-950 border border-zinc-800 py-2.5 px-3 rounded-lg text-xs text-zinc-300 flex items-center justify-between hover:border-zinc-600 transition">
+                            <span>🌙 أصوات الليل والصرار</span>
+                            <span id="nightStatus" class="w-2 h-2 rounded-full bg-zinc-700"></span>
+                        </button>
+                        <button onclick="toggleAudio('lofi')" id="audioLofiBtn" class="bg-zinc-950 border border-zinc-800 py-2.5 px-3 rounded-lg text-xs text-zinc-300 flex items-center justify-between hover:border-zinc-600 transition">
+                            <span>☕ لوفي هيب هوب</span>
+                            <span id="lofiStatus" class="w-2 h-2 rounded-full bg-zinc-700"></span>
                         </button>
                     </div>
                 </div>
@@ -254,24 +259,50 @@
         let isTimerRunning = false;
         let sessionsCompleted = parseInt(localStorage.getItem('pomodoro_sessions') || '0');
 
-        // AUDIO STREAMS (High quality direct MP3 audio)
+        // AUDIO STREAMS (Direct reliable HTML5 audio links)
         let activeAudio = null;
         let activeAudioKey = null;
         const soundUrls = {
             rain: 'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
             birds: 'https://actions.google.com/sounds/v1/environments/forest_morning.ogg',
-            lofi: 'https://stream.zeno.fm/f3wvbbqmdg8uv',
-            waves: 'https://actions.google.com/sounds/v1/water/ocean_waves_into_cave.ogg'
+            waves: 'https://actions.google.com/sounds/v1/water/ocean_waves_into_cave.ogg',
+            fireplace: 'https://actions.google.com/sounds/v1/household/fireplace_crackling.ogg',
+            night: 'https://actions.google.com/sounds/v1/environments/crickets_chirping_night.ogg',
+            lofi: 'https://stream.zeno.fm/f3wvbbqmdg8uv'
         };
 
-        // REAL PICTURE WALLPAPERS (High resolution Unsplash visual wallpapers)
-        const wallpapers = {
-            dark: 'none',
-            forest: 'url("https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1000&auto=format&fit=crop")',
-            stars: 'url("https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?q=80&w=1000&auto=format&fit=crop")',
-            ocean: 'url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000&auto=format&fit=crop")',
-            sunset: 'url("https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?q=80&w=1000&auto=format&fit=crop")',
-            zen: 'url("https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?q=80&w=1000&auto=format&fit=crop")'
+        // 4K HD WALLPAPERS (Multiple images per theme that auto cross-fade)
+        let currentWallpaperTheme = 'dark';
+        let wallpaperInterval = null;
+        let wallpaperIndex = 0;
+
+        const hdWallpaperSets = {
+            dark: [],
+            forest: [
+                'https://images.unsplash.com/photo-1511497584788-876761c11969?q=80&w=2000&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=2000&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1473448912268-2022ce9509d8?q=80&w=2000&auto=format&fit=crop'
+            ],
+            stars: [
+                'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?q=80&w=2000&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=2000&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2000&auto=format&fit=crop'
+            ],
+            ocean: [
+                'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=2000&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1518837695005-2083093ee35b?q=80&w=2000&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1498855926480-d98e83099315?q=80&w=2000&auto=format&fit=crop'
+            ],
+            sunset: [
+                'https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?q=80&w=2000&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=2000&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=2000&auto=format&fit=crop'
+            ],
+            zen: [
+                'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?q=80&w=2000&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1545243424-0ce743321e11?q=80&w=2000&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=2000&auto=format&fit=crop'
+            ]
         };
 
         document.getElementById('datePicker').value = selectedDate;
@@ -469,20 +500,34 @@
             document.getElementById('timerDisplay').textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         }
 
-        // VISUAL WALLPAPERS SETTER
-        function setWallpaper(theme) {
+        // FADING 4K WALLPAPERS CONTROLLER
+        function setWallpaperTheme(theme) {
+            currentWallpaperTheme = theme;
+            clearInterval(wallpaperInterval);
+            wallpaperIndex = 0;
+
             const body = document.getElementById('appBody');
-            if (wallpapers[theme]) {
-                body.style.backgroundImage = wallpapers[theme];
-                if (theme === 'dark') {
-                    body.style.backgroundColor = '#09090b';
-                }
+            const images = hdWallpaperSets[theme];
+
+            if (!images || images.length === 0) {
+                body.style.backgroundImage = 'none';
+                body.style.backgroundColor = '#09090b';
+                return;
             }
+
+            body.style.backgroundImage = `url("${images[0]}")`;
+
+            // Auto-fade pictures every 10 seconds
+            wallpaperInterval = setInterval(() => {
+                wallpaperIndex = (wallpaperIndex + 1) % images.length;
+                body.style.backgroundImage = `url("${images[wallpaperIndex]}")`;
+            }, 10000);
         }
 
-        // AUDIO STREAMS TOGGLE
+        // AUDIO TOGGLES
         function toggleAudio(key) {
-            const keys = ['rain', 'birds', 'lofi', 'waves'];
+            const allKeys = ['rain', 'birds', 'waves', 'fireplace', 'night', 'lofi'];
+            
             if (activeAudioKey === key) {
                 activeAudio.pause();
                 activeAudio = null;
@@ -490,7 +535,7 @@
                 document.getElementById(key + 'Status').className = 'w-2 h-2 rounded-full bg-zinc-700';
             } else {
                 if (activeAudio) activeAudio.pause();
-                keys.forEach(k => {
+                allKeys.forEach(k => {
                     const el = document.getElementById(k + 'Status');
                     if (el) el.className = 'w-2 h-2 rounded-full bg-zinc-700';
                 });
@@ -542,7 +587,7 @@
                 document.getElementById('uiCustomWork').textContent = 'عمل';
                 document.getElementById('uiCustomShort').textContent = 'راحة قصيرة';
                 document.getElementById('uiCustomLong').textContent = 'راحة طويلة';
-                document.getElementById('uiWallpaperTitle').textContent = '🎨 صور خلفيات مهدئة للتركيز:';
+                document.getElementById('uiWallpaperTitle').textContent = '🎨 صور خلفيات HD متغيرة وهادئة:';
                 document.getElementById('uiAudioTitle').textContent = '🎧 أصوات الطبيعة وموسيقى التركيز الحقيقية:';
                 document.getElementById('langBtn').textContent = 'English';
             } else {
@@ -574,7 +619,7 @@
                 document.getElementById('uiCustomWork').textContent = 'Work';
                 document.getElementById('uiCustomShort').textContent = 'Short Break';
                 document.getElementById('uiCustomLong').textContent = 'Long Break';
-                document.getElementById('uiWallpaperTitle').textContent = '🎨 Visual Picture Wallpapers:';
+                document.getElementById('uiWallpaperTitle').textContent = '🎨 Fading 4K Picture Wallpapers:';
                 document.getElementById('uiAudioTitle').textContent = '🎧 Focus Music & Real Nature Sounds:';
                 document.getElementById('langBtn').textContent = 'عربي';
             }
@@ -754,7 +799,7 @@
                     missedSection.classList.remove('hidden');
                     missed.forEach(task => {
                         const div = document.createElement('div');
-                        div.className = 'flex justify-between items-center text-xs bg-zinc-900/90 p-2.5 rounded-lg border border-zinc-800';
+                        div.className = 'flex justify-between items-center text-xs bg-zinc-900/90 p-2.5 rounded-lg border border-zinc-800 backdrop-blur-md';
                         div.innerHTML = `
                             <span class="text-zinc-300 truncate max-w-[140px]">${task.title}</span>
                             <div class="flex gap-1.5">
@@ -772,7 +817,7 @@
             } else {
                 todayTasks.forEach(task => {
                     const div = document.createElement('div');
-                    div.className = `flex items-center justify-between p-3.5 rounded-xl border ${task.completed ? 'bg-zinc-950/90 border-zinc-900 text-zinc-600' : 'bg-zinc-900/90 border-zinc-800 text-zinc-200'}`;
+                    div.className = `flex items-center justify-between p-3.5 rounded-xl border backdrop-blur-md ${task.completed ? 'bg-zinc-950/80 border-zinc-900 text-zinc-600' : 'bg-zinc-900/80 border-zinc-800 text-zinc-200'}`;
                     
                     let timeBadge = '';
                     if (task.start_time || task.end_time) {
